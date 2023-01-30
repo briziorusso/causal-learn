@@ -20,6 +20,7 @@ from causallearn.utils.GraphUtils import GraphUtils
 from causallearn.utils.PCUtils.Helper import list_union, powerset
 from causallearn.utils.cit import CIT
 
+from collections import defaultdict
 
 class CausalGraph:
     def __init__(self, no_of_var: int, node_names: List[str] | None = None):
@@ -45,7 +46,9 @@ class CausalGraph:
         self.nx_skel = nx.Graph()  # store the undirected graph
         self.labels = {}
         self.prt_m = {}  # store the parents of missingness indicators
-
+        self.IKB = np.empty((no_of_var, no_of_var), object)  # store the Independent Knowledge Base
+        self.IKB_list = list()  # store the Independent Knowledge Base
+        self.decisions = defaultdict(list)
 
     def set_ind_test(self, indep_test):
         """Set the conditional independence test that will be used"""
@@ -125,10 +128,13 @@ class CausalGraph:
         neigh_y = self.neighbors(j)
         pow_neigh_x = powerset(neigh_x)
         pow_neigh_y = powerset(neigh_y)
+        print(f"Neighbours of {i}: {neigh_x}, PWS: {pow_neigh_x}")
+        print(f"Neighbours of {j}: {neigh_y}, PWS: {pow_neigh_y}")
         return list_union(pow_neigh_x, pow_neigh_y)
 
     def find_cond_sets_with_mid(self, i: int, j: int, k: int) -> List[Tuple[int]]:
         """return the list of conditioning sets of the neighbors of i or j in adjmat which contains k"""
+        print(f"Conditional sets with {k}: {[S for S in self.find_cond_sets(i, j) if k in S]}")
         return [S for S in self.find_cond_sets(i, j) if k in S]
 
     def find_cond_sets_without_mid(self, i: int, j: int, k: int) -> List[Tuple[int]]:
@@ -191,7 +197,7 @@ class CausalGraph:
         tmp_png = pyd.create_png(f="png")
         fp = io.BytesIO(tmp_png)
         img = mpimg.imread(fp, format='png')
-        plt.rcParams["figure.figsize"] = [20, 12]
+        plt.rcParams["figure.figsize"] = [10, 6]
         plt.rcParams["figure.autolayout"] = True
         plt.axis('off')
         plt.imshow(img)

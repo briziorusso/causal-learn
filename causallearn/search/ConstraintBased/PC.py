@@ -22,6 +22,7 @@ def pc(
     alpha=0.05, 
     indep_test=fisherz, 
     stable: bool = True, 
+    ikb: bool = False, 
     uc_rule: int = 0, 
     uc_priority: int = 2,
     mvpc: bool = False, 
@@ -43,7 +44,7 @@ def pc(
                         verbose=verbose,
                         show_progress=show_progress, **kwargs)
     else:
-        return pc_alg(data=data, node_names=node_names, alpha=alpha, indep_test=indep_test, stable=stable, uc_rule=uc_rule,
+        return pc_alg(data=data, node_names=node_names, alpha=alpha, indep_test=indep_test, stable=stable, ikb=ikb, uc_rule=uc_rule,
                       uc_priority=uc_priority, background_knowledge=background_knowledge, verbose=verbose,
                       show_progress=show_progress, **kwargs)
 
@@ -54,6 +55,7 @@ def pc_alg(
     alpha: float,
     indep_test: str,
     stable: bool,
+    ikb: bool,
     uc_rule: int,
     uc_priority: int,
     background_knowledge: BackgroundKnowledge | None = None,
@@ -78,8 +80,8 @@ def pc_alg(
     stable : run stabilized skeleton discovery if True (default = True)
     uc_rule : how unshielded colliders are oriented
            0: run uc_sepset
-           1: run maxP
-           2: run definiteMaxP
+           1: run maxP (Ramsey, J. (2016). Improving accuracy and scalability of the pc algorithm by maximizing p-value. arXiv preprint arXiv:1610.00378.)
+           2: run definiteMaxP (Ramsey, J. (2016))
     uc_priority : rule of resolving conflicts between unshielded colliders
            -1: whatever is default in uc_rule
            0: overwrite
@@ -101,7 +103,7 @@ def pc_alg(
 
     start = time.time()
     indep_test = CIT(data, indep_test, **kwargs)
-    cg_1 = SkeletonDiscovery.skeleton_discovery(data, alpha, indep_test, stable,
+    cg_1 = SkeletonDiscovery.skeleton_discovery(data, alpha, indep_test, stable, ikb,
                                                 background_knowledge=background_knowledge, verbose=verbose,
                                                 show_progress=show_progress, node_names=node_names)
 
@@ -109,25 +111,31 @@ def pc_alg(
         orient_by_background_knowledge(cg_1, background_knowledge)
 
     if uc_rule == 0:
+        print("Starting Orientation by Separating Set")
         if uc_priority != -1:
             cg_2 = UCSepset.uc_sepset(cg_1, uc_priority, background_knowledge=background_knowledge)
         else:
             cg_2 = UCSepset.uc_sepset(cg_1, background_knowledge=background_knowledge)
+        print("Starting propagation by Meek Rules (Meek, 1995)")
         cg = Meek.meek(cg_2, background_knowledge=background_knowledge)
 
     elif uc_rule == 1:
+        print("Starting Orientation by MaxP (Ramsey, 2016)")
         if uc_priority != -1:
             cg_2 = UCSepset.maxp(cg_1, uc_priority, background_knowledge=background_knowledge)
         else:
             cg_2 = UCSepset.maxp(cg_1, background_knowledge=background_knowledge)
+        print("Starting propagation by Meek Rules (Meek, 1995)")
         cg = Meek.meek(cg_2, background_knowledge=background_knowledge)
 
     elif uc_rule == 2:
+        print("Starting Orientation by DefiniteMaxP (Ramsey, 2016)")
         if uc_priority != -1:
             cg_2 = UCSepset.definite_maxp(cg_1, alpha, uc_priority, background_knowledge=background_knowledge)
         else:
             cg_2 = UCSepset.definite_maxp(cg_1, alpha, background_knowledge=background_knowledge)
         cg_before = Meek.definite_meek(cg_2, background_knowledge=background_knowledge)
+        print("Starting propagation by Meek Rules (Meek, 1995)")
         cg = Meek.meek(cg_before, background_knowledge=background_knowledge)
     else:
         raise ValueError("uc_rule should be in [0, 1, 2]")
@@ -484,7 +492,7 @@ def get_adjacancy_matrix(g: CausalGraph) -> ndarray:
     return nx.to_numpy_array(g.nx_graph).astype(int)
 
 
-def matrix_diff(cg1: CausalGraph, cg2: CausalGraph) -> (float, List[Tuple[int, int]]):
+def matrix_diff(cg1: CausalGraph, cg2: CausalGraph) -> Tuple[float, List[Tuple[int, int]]]:
     adj1 = get_adjacancy_matrix(cg1)
     adj2 = get_adjacancy_matrix(cg2)
     count = 0
