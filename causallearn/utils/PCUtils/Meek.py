@@ -7,6 +7,7 @@ from causallearn.graph.Endpoint import Endpoint
 from causallearn.graph.GraphClass import CausalGraph
 from causallearn.utils.PCUtils.BackgroundKnowledge import BackgroundKnowledge
 
+import itertools
 
 class test_obj( object ):
     def __init__(self, X:set, S:set, Y:set, p_val:float=None, dep_type:str="I", alpha:float=0.01 ):
@@ -77,7 +78,7 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
 
     while loop:
         loop = False
-        print("---------------- Processing Unshielded Triples ----------------")
+        print("---------------- Processing Unshielded Triples ---------------- R1 Meek, 1995")
         for (i, j, k) in UT:
             if cg_new.is_fully_directed(i, j) and cg_new.is_undirected(j, k):
                 print(f"{i} --> {j} and {j} -- {k}")
@@ -101,15 +102,30 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                         continue
                     cg_new.G.add_edge(Edge(cg_new.G.nodes[j], cg_new.G.nodes[k], Endpoint.TAIL, Endpoint.ARROW))
                     print(f'Oriented: j={j} --> k={k} ({cg_new.G.nodes[j].get_name()} --> {cg_new.G.nodes[k].get_name()})')
-                    premise_test = [test for test in cg_new.IKB_list if test.X=={i} and test.Y=={k} and \
+                    
+                    ## Premise 1: UT 
+                    premise_test1 = [test for test in cg_new.IKB_list if test.X=={i} and test.Y=={k} and \
+                                        test.S==set() and test.dep_type=='I']
+                    if premise_test1:
+                        Premise1 = premise_test1[0] 
+                    else:
+                        Premise1 = test_obj(X={i}, S=set(), Y={k}, dep_type="I")
+                        cg_new.IKB_list.append(Premise1)                      
+                    ## Premise 2: Not a V-structure 
+                    premise_test2 = [test for test in cg_new.IKB_list if test.X=={i} and test.Y=={k} and \
                                         test.S=={j} and test.dep_type=='I']
-                    test_premise = premise_test[0] if premise_test else test_obj(X={i}, S={j}, Y={k}, dep_type="I")
-                    Premise = (test_premise, str(['orient', (i, j)]))
-                    Conclusion = ("orient", (j, k))
+                    if premise_test2:
+                        Premise2 = premise_test2[0] 
+                    else:
+                        Premise2 = test_obj(X={i}, S={j}, Y={k}, dep_type="I")
+                        cg_new.IKB_list.append(Premise2)  
+                    Premise = (Premise1, Premise2, "orient({}, {})".format(i, j))
+                    Conclusion = "orient({}, {})".format(j, k)
                     cg_new.decisions[Premise].append(Conclusion)
+
                     loop = True
 
-        print("---------------- Processing Triangles ----------------")
+        print("---------------- Processing Triangles ---------------- R2 Meek, 1995")
         for (i, j, k) in Tri:
             print((i, j, k),"is Tri")
             if cg_new.is_fully_directed(i, j) and cg_new.is_fully_directed(j, k) and cg_new.is_undirected(i, k):
@@ -129,17 +145,48 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                         continue
                     cg_new.G.add_edge(Edge(cg_new.G.nodes[i], cg_new.G.nodes[k], Endpoint.TAIL, Endpoint.ARROW))
                     print(f'Oriented: i={i} --> k={k} ({cg_new.G.nodes[i].get_name()} --> {cg_new.G.nodes[k].get_name()})')
-                    Premise = ' , '.join([str(['orient', (i, j)]), str(['orient', (j, k)])])
-                    Conclusion = ("orient", (i, k))
+                    
+                    tri_prem = []
+                    ## Premise 1: Triangle 
+                    for (a,b) in itertools.combinations([i, j, k], 2):
+                        premise_test1 = [test for test in cg_new.IKB_list if test.X=={a} and test.Y=={b} and \
+                                            test.S==set() and test.dep_type=='D']
+                        if premise_test1:
+                            prem = premise_test1[0] 
+                        else:
+                            prem = test_obj(X={a}, S=set(), Y={b}, dep_type="D")
+                            cg_new.IKB_list.append(prem) 
+                        tri_prem.append(prem)                                               
+
+                    ## Premise 2: Cannot have cycles and already have i --> j and j --> k                                           
+                    Premise = tuple(tri_prem + ["orient({}, {})".format(i, j), "orient({}, {})".format(j, k)])
+                    
+                    ## Conclusion: Orient i-->k
+                    Conclusion = "orient({}, {})".format(i, k)
                     cg_new.decisions[Premise].append(Conclusion)
+
                     loop = True
 
         print("---------------- Processing Kites ----------------")
         for (i, j, k, l) in Kite:
             print((i, j, k, l),"is Kite")
+            kite_prem = []
+            #### Premises for Kite
+            ## All nodes are connected but i and k
+            for (a,b) in itertools.combinations([i, j, k, l], 2):
+                dep_t = 'I' if (a,b)==(i,k) else 'D'
+                premise_test1 = [test for test in cg_new.IKB_list if test.X=={a} and test.Y=={b} and \
+                                    test.S==set() and test.dep_type==dep_t]
+                if premise_test1:
+                    prem = premise_test1[0] 
+                else:
+                    prem = test_obj(X={a}, S=set(), Y={b}, dep_type=dep_t)
+                    cg_new.IKB_list.append(prem) 
+                kite_prem.append(prem)     
+
             if cg_new.is_undirected(i, j) and cg_new.is_undirected(i, k) and cg_new.is_fully_directed(j, l) \
                     and cg_new.is_fully_directed(k, l) and cg_new.is_undirected(i, l):
-                print(f"{i} -- {j} and {i} -- {k} and {j} --> {l} and {k} --> {l} and {i} -- {l}")
+                print(f"{i} -- {j} and {i} -- {k} and {j} --> {l} and {k} --> {l} and {i} -- {l}", "R3 Meek, 1995")
                 if (background_knowledge is not None) and \
                         (background_knowledge.is_forbidden(cg_new.G.nodes[i], cg_new.G.nodes[l]) or
                          background_knowledge.is_required(cg_new.G.nodes[l], cg_new.G.nodes[i])):
@@ -155,8 +202,12 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                         continue
                     cg_new.G.add_edge(Edge(cg_new.G.nodes[i], cg_new.G.nodes[l], Endpoint.TAIL, Endpoint.ARROW))
                     print(f'Oriented: i={i} --> l={l} ({cg_new.G.nodes[i].get_name()} --> {cg_new.G.nodes[l].get_name()})')
-                    Premise = ' , '.join([str(['orient', (j, l)]), str(['orient', (k, l)])])
-                    Conclusion = ("orient", (i, l))
+                      
+                    ## Additional Premise: Two edges are oriented
+                    Premise = tuple(kite_prem + ["orient({}, {})".format(j, l), "orient({}, {})".format(k, l)])
+                    
+                    ## Conclusion
+                    Conclusion = "orient({}, {})".format(i, l)
                     cg_new.decisions[Premise].append(Conclusion)
                     loop = True
 
@@ -188,7 +239,7 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                     Premise = kite_prem + ["orient({}, {})".format(l, j), "orient({}, {})".format(k, l)] + third_dir_edge
 
                     ## Conclusion
-                    Conclusion = ("orient", (i, j))
+                    Conclusion = "orient({}, {})".format(i, j)
                     cg_new.decisions[Premise].append(Conclusion)
                     loop = True
     return cg_new

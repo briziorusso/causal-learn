@@ -182,7 +182,7 @@ def skeleton_discovery(
             if edge1 is not None:
                 cg.G.remove_edge(edge1)
                 Premise = [test for test in cg.IKB_list if test.X=={x} and test.Y=={y} and test.S==set(S)][0]
-                Conclusion = ('remove', (x, y))
+                Conclusion = "remove({}, {})".format(x, y)
                 cg.decisions[Premise] = Conclusion
 
     cg.draw_pydot_graph()

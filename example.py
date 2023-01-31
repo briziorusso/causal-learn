@@ -283,21 +283,9 @@ def compose(test1:test_obj, test2:test_obj)->list:
 sys.path.append("../")
 # from abap_parser import *
 # from aspartix_interface import *
-from ABAplus.aba_plus_ import Rule, Sentence, Preference, ABA_Plus
+from ABAplus.aba_plus_ import Rule, Sentence, Preference, ABA_Plus, LESS_THAN, LESS_EQUAL, NO_RELATION, CANNOT_BE_DERIVED, NORMAL_ATK, REVERSE_ATK
 from tqdm import tqdm
 import itertools
-
-LESS_THAN = 1
-LESS_EQUAL = 2
-NO_RELATION = 3
-
-CANNOT_BE_DERIVED = -1
-
-NORMAL_ATK = -2
-REVERSE_ATK = -1
-
-NORMAL_SUP = 2
-REVERSE_SUP = 1
 
 IKB_axioms = cg.IKB_list.copy()
 
@@ -348,6 +336,7 @@ print("Tests added by symmetry:",len(IKB_axioms)-len(cg.IKB_list))
 # ikb_rules.append(rule)
 ##================================================================
 
+##NOTE: chose only thre
 for premise, conclusions in cg.decisions.items():
     if type(premise) == str:
         premise = premise.split(' , ')
@@ -358,6 +347,8 @@ for premise, conclusions in cg.decisions.items():
             if type(p) == str:
                 p_out = Sentence(p)
                 p_out_list.append(p_out)
+            elif type(p) == tuple:
+                raise NotImplementedError
             elif 'test_obj' in str(p.__class__):
                 if p not in test_to_sentence_map:
                     test_to_sentence_map[p] = Sentence(str(p.to_list())) 
@@ -372,12 +363,18 @@ for premise, conclusions in cg.decisions.items():
         premise = set([test_to_sentence_map[premise]])                    
     else:
         raise TypeError("Premise is not str, tuple or test_obj")
-    if type(conclusions) == tuple:
+    if type(conclusions) == str:
+        rule = Rule(premise, Sentence(conclusions))    
+        decision_rules.append(rule)
+    elif type(conclusions) == tuple:
         rule = Rule(premise, Sentence(str(conclusions)))    
         decision_rules.append(rule)
     elif type(conclusions) == list:
         for conclusion in conclusions:
-            if type(conclusion) == tuple:
+            if type(conclusion) == str:
+                rule = Rule(premise, Sentence(conclusion))    
+                decision_rules.append(rule)
+            elif type(conclusion) == tuple:
                 rule = Rule(premise, Sentence(str(conclusions)))    
                 decision_rules.append(rule)
             elif 'test_obj' in str(conclusion.__class__):
@@ -389,13 +386,20 @@ for premise, conclusions in cg.decisions.items():
                 decision_rules.append(rule)
             elif type(conclusion) in [list, set]:
                 for c in conclusion:
-                    if c not in test_to_sentence_map:
-                        test_to_sentence_map[c] = Sentence(str(c.to_list()))  
-                        IKB_axioms.append(c)
-                    rule = Rule(premise, test_to_sentence_map[c])
-                    decision_rules.append(rule)
+                    if type(c) == str:
+                        rule = Rule(premise, Sentence(c))    
+                        decision_rules.append(rule)
+                    elif type(c) == tuple:
+                        rule = Rule(premise, Sentence(str(c)))    
+                        decision_rules.append(rule)
+                    elif 'test_obj' in str(c.__class__):
+                        if c not in test_to_sentence_map:
+                            test_to_sentence_map[c] = Sentence(str(c.to_list()))  
+                            IKB_axioms.append(c)
+                        rule = Rule(premise, test_to_sentence_map[c])
+                        decision_rules.append(rule)
             else:
-                raise TypeError("Conclusion is not tuple, test_obj, set or list")   
+                raise TypeError("Conclusion is not str, tuple, test_obj, set or list")   
     else:
         raise TypeError("Conclusion is not recognised")   
 
@@ -608,8 +612,10 @@ format_sets(stable)
 
 accepted_indep = [s.symbol for s in next(iter(stable)) if 'I' in s.symbol]
 
-cg
-
+### Check if extension is the same as the set of assumptions
+stable_print = [s.symbol for s in next(iter(stable)) ]
+ass_print = [s.symbol for s in test_assumptions]
+set(stable_print) == set(ass_print)
 
 abap.generate_all_deductions(decision_rules)
 
@@ -621,14 +627,14 @@ abap.generate_all_deductions(decision_rules)
 def print_relevant_tests_from_list(test_list:list, x:set, y:set, S:set=None, p_val:str=None, d_type:str=None)->list:
     if S != None: ## s==set() for tests with empty set - not {}
         if not d_type:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val != p_val]
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val == p_val]
         else:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val != p_val and test.dep_type==d_type]
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val == p_val and test.dep_type==d_type]
     else:
         if not d_type:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val != p_val]
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val == p_val]
         else:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val != p_val and test.dep_type==d_type]
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val == p_val and test.dep_type==d_type]
 
 print_relevant_tests_from_list(test_list=cg.IKB_list, x={0}, y={1}, S=set(), p_val='all', d_type=None)
 
@@ -637,6 +643,7 @@ print_relevant_tests_from_list(test_list=cg.IKB_list, x={0}, y={1}, S=set(), p_v
 #======================================================================================#
 #                           Code Gradual Semantics (T-Norms)                           #
 #======================================================================================#
+
 
 
 

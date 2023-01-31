@@ -424,23 +424,23 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                      background_knowledge.is_required(cg_new.G.nodes[y], cg_new.G.nodes[z])):
                 continue
 
+            ### Premises
+            ## UT condition
+            UC_premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
+                                test.S==set() and test.dep_type=='I'][0]
+            ## Collider Condition
+            premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
+                                test.S=={y} and test.dep_type=='D']
+            if premise_test:
+                Premise = premise_test[0] 
+            else:
+                Premise = test_obj(X={x}, S={y}, Y={z}, dep_type="D")
+                cg_new.IKB_list.append(Premise)  
+
             if (not cg_new.is_fully_directed(y, x)) and (not cg_new.is_fully_directed(y, z)):
                 # Orient only if the edges have not been oriented the other way around
                 ##NOTE shall I code this condition too?
                 print(f"{y} -- {x} and {y} -- {z}")
-
-                ### Premises
-                ## UT condition
-                UC_premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
-                                    test.S==set() and test.dep_type=='I'][0]
-                ## Collider Condition
-                premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
-                                    test.S=={y} and test.dep_type=='D']
-                if premise_test:
-                    Premise = premise_test[0] 
-                else:
-                    Premise = test_obj(X={x}, S={y}, Y={z}, dep_type="D")
-                    cg_new.IKB_list.append(Premise)  
 
                 ### Conclusions: Orient V-structure               
                 edge1 = cg_new.G.get_edge(cg_new.G.nodes[x], cg_new.G.nodes[y])
@@ -448,20 +448,19 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                     cg_new.G.remove_edge(edge1)
                 cg_new.G.add_edge(Edge(cg_new.G.nodes[x], cg_new.G.nodes[y], Endpoint.TAIL, Endpoint.ARROW))
                 print(f'Oriented: x={x} --> y={y} ({cg_new.G.nodes[x].get_name()} --> {cg_new.G.nodes[y].get_name()})')   
-                Conclusion = ("orient", (x, y))
-                cg_new.decisions[(UC_premise_test,Premise)].append(Conclusion)
+                Conclusion1 = "orient({}, {})".format(x, y)
 
                 edge2 = cg_new.G.get_edge(cg_new.G.nodes[z], cg_new.G.nodes[y])
                 if edge2 is not None:
                     cg_new.G.remove_edge(edge2)
                 cg_new.G.add_edge(Edge(cg_new.G.nodes[z], cg_new.G.nodes[y], Endpoint.TAIL, Endpoint.ARROW))
                 print(f'Oriented: z={z} --> y={y} ({cg_new.G.nodes[z].get_name()} --> {cg_new.G.nodes[y].get_name()})')
-                Conclusion = ("orient", (z, y))
-                cg_new.decisions[(UC_premise_test,Premise)].append(Conclusion)
+                Conclusion2 = "orient({}, {})".format(z, y)
+                cg_new.decisions[(UC_premise_test,Premise)].append(set([Conclusion1, Conclusion2]))
 
             else:
                 #remove from decisions if edge is not removed
-                del cg_new.decisions[get_keys_from_value(cg_new.decisions, test_obj(X={x}, S=y, Y={z}, dep_type="D"))]
+                del cg_new.decisions[get_keys_from_value(cg_new.decisions, (UC_premise_test,Premise))]
 
         return cg_new
 
