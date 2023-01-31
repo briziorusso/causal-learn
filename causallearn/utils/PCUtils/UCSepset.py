@@ -317,10 +317,19 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
             elif priority == 4:
                 UC_dict[(x, y, z)] = max_p_not_contain_y
                 print(f"Chosen: {[{S,cg_new.ci_test(x, z, S)} for S in cond_without_y if cg_new.ci_test(x, z, S)==max_p_not_contain_y]}")
+
                 loosing_cond_set = get_keys_from_value(cond_with_y_p, max_p_contain_y)
                 winning_cond_set = get_keys_from_value(cond_without_y_p, max_p_not_contain_y)
                 # collider = set(loosing_cond_set) - set(winning_cond_set) #TODO: revise for lenght issues
 
+                ## Premises 
+                # x _||_ z #
+                ### This is the condition for being UT in the first place
+                UC_premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
+                                    test.S==set() and test.dep_type=='I'][0]                
+                # x _||_ z | {W} #
+                ### The strongest test does not contain y, hence independence is attributed to {W} 
+                # and y considered a collider
                 premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
                                     test.S==set(winning_cond_set) and test.dep_type=='I']
                 if premise_test:
@@ -328,15 +337,19 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 else:
                     Premise = test_obj(X={x}, S=set(winning_cond_set), Y={z}, dep_type="I")
                     cg_new.IKB_list.append(Premise)
-
+                
+                ## Conclusions
+                # x _|/|_ z | y ### y is collider
                 conc1_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
-                                    test.S=={y} and test.dep_type=='I']
+                                    test.S=={y} and test.dep_type=='D']
                 if conc1_test:
                     Conclusion1 = conc1_test[0] 
                 else:
                     Conclusion1 = test_obj(X={x}, S={y}, Y={z}, dep_type="D")
                     cg_new.IKB_list.append(Conclusion1)
 
+                # x _|/|_ z | {W} + y ### Weaker test is not "believed" hence made a dependence 
+                # even though returns I solely from the data
                 conc2_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
                                     test.S==set(loosing_cond_set) and test.dep_type=='D']
                 if conc2_test:
@@ -344,13 +357,22 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 else:
                     Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
                     cg_new.IKB_list.append(Conclusion2)
-                cg_new.decisions[Premise].append(set([Conclusion1, Conclusion2]))
+
+                cg_new.decisions[(UC_premise_test, Premise)].append(set([Conclusion1, Conclusion2]))
         else:
             print("max_p_not_contain_y <= max_p_contain_y",max_p_not_contain_y, max_p_contain_y)
             loosing_cond_set = get_keys_from_value(cond_without_y_p, max_p_not_contain_y)
             winning_cond_set = get_keys_from_value(cond_with_y_p, max_p_contain_y)
             # non_collider = set(loosing_cond_set) - set(winning_cond_set) #TODO: revise for lenght issues
 
+            ## Premises 
+            # x _||_ z #
+            ### This is the condition for being UT in the first place
+            UC_premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
+                                test.S==set() and test.dep_type=='I'][0]                
+            # x _||_ z | {W} + y #
+            ### The strongest test contains y, hence independence is attributed to y
+            # and y is NOT considered a collider
             premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
                                 test.S==set(winning_cond_set) and test.dep_type=='I']
             if premise_test:
@@ -359,6 +381,8 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 Premise = test_obj(X={x}, S=set(winning_cond_set), Y={z}, dep_type="I")
                 cg_new.IKB_list.append(Premise)
 
+            ## Conclusions
+            # x _||_ z | y ### y is NOT a collider
             conc1_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
                                 test.S=={y} and test.dep_type=='I']
             if conc1_test:
@@ -369,13 +393,16 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
 
             conc2_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
                                 test.S==set(loosing_cond_set) and test.dep_type=='D']
+
+            # x _|/|_ z | {W} ### Weaker test is not "believed" hence made a dependence 
+            # even though returns I solely from the data
             if conc2_test:
                 Conclusion2 = conc2_test[0] 
             else:
                 Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
                 cg_new.IKB_list.append(Conclusion2)
 
-            cg_new.decisions[Premise].append(set([Conclusion1, Conclusion2]))
+            cg_new.decisions[(UC_premise_test,Premise)].append(set([Conclusion1, Conclusion2]))
 
     if priority in [0, 1, 2]:
         return cg_new
@@ -398,31 +425,40 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 continue
 
             if (not cg_new.is_fully_directed(y, x)) and (not cg_new.is_fully_directed(y, z)):
-                print(f"{y} -- {x} and {y} -- {z}")
-                edge1 = cg_new.G.get_edge(cg_new.G.nodes[x], cg_new.G.nodes[y])
-                if edge1 is not None:
-                    cg_new.G.remove_edge(edge1)
                 # Orient only if the edges have not been oriented the other way around
-                cg_new.G.add_edge(Edge(cg_new.G.nodes[x], cg_new.G.nodes[y], Endpoint.TAIL, Endpoint.ARROW))
-                print(f'Oriented: x={x} --> y={y} ({cg_new.G.nodes[x].get_name()} --> {cg_new.G.nodes[y].get_name()})')
+                ##NOTE shall I code this condition too?
+                print(f"{y} -- {x} and {y} -- {z}")
+
+                ### Premises
+                ## UT condition
+                UC_premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
+                                    test.S==set() and test.dep_type=='I'][0]
+                ## Collider Condition
                 premise_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
                                     test.S=={y} and test.dep_type=='D']
                 if premise_test:
                     Premise = premise_test[0] 
                 else:
                     Premise = test_obj(X={x}, S={y}, Y={z}, dep_type="D")
-                    cg_new.IKB_list.append(Premise)                    
+                    cg_new.IKB_list.append(Premise)  
+
+                ### Conclusions: Orient V-structure               
+                edge1 = cg_new.G.get_edge(cg_new.G.nodes[x], cg_new.G.nodes[y])
+                if edge1 is not None:
+                    cg_new.G.remove_edge(edge1)
+                cg_new.G.add_edge(Edge(cg_new.G.nodes[x], cg_new.G.nodes[y], Endpoint.TAIL, Endpoint.ARROW))
+                print(f'Oriented: x={x} --> y={y} ({cg_new.G.nodes[x].get_name()} --> {cg_new.G.nodes[y].get_name()})')   
                 Conclusion = ("orient", (x, y))
-                cg_new.decisions[Premise].append(Conclusion)
+                cg_new.decisions[(UC_premise_test,Premise)].append(Conclusion)
 
                 edge2 = cg_new.G.get_edge(cg_new.G.nodes[z], cg_new.G.nodes[y])
                 if edge2 is not None:
                     cg_new.G.remove_edge(edge2)
                 cg_new.G.add_edge(Edge(cg_new.G.nodes[z], cg_new.G.nodes[y], Endpoint.TAIL, Endpoint.ARROW))
                 print(f'Oriented: z={z} --> y={y} ({cg_new.G.nodes[z].get_name()} --> {cg_new.G.nodes[y].get_name()})')
-
                 Conclusion = ("orient", (z, y))
-                cg_new.decisions[Premise].append(Conclusion)
+                cg_new.decisions[(UC_premise_test,Premise)].append(Conclusion)
+
             else:
                 #remove from decisions if edge is not removed
                 del cg_new.decisions[get_keys_from_value(cg_new.decisions, test_obj(X={x}, S=y, Y={z}, dep_type="D"))]
