@@ -617,18 +617,26 @@ abap.generate_all_deductions(decision_rules)
 [test.to_list() for test in cg.IKB_list if test.p_val == None]
 [test.to_list() for test in IKB_axioms if test.p_val == None]
 
-x = {0}
-y = {1}
 
-def retreive_relevant_tests_from_list(x, y, S=None, p_val=True, d_type=None):
-    if p_val:
-        return [test.to_list() for test in cg.IKB_list if test.X==x and test.Y==y and test.p_val !=p_val]
-    elif S:
-        return [test.to_list() for test in cg.IKB_list if test.X==x and test.Y==y and test.S==S]
+def print_relevant_tests_from_list(test_list:list, x:set, y:set, S:set=None, p_val:str=None, d_type:str=None)->list:
+    if S != None: ## s==set() for tests with empty set - not {}
+        if not d_type:
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val != p_val]
+        else:
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val != p_val and test.dep_type==d_type]
+    else:
+        if not d_type:
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val != p_val]
+        else:
+            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val != p_val and test.dep_type==d_type]
 
-retreive_relevant_tests_from_list(x,y)
+print_relevant_tests_from_list(test_list=cg.IKB_list, x={0}, y={1}, S=set(), p_val='all', d_type=None)
 
 
+
+#======================================================================================#
+#                           Code Gradual Semantics (T-Norms)                           #
+#======================================================================================#
 
 
 
