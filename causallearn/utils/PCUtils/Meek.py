@@ -160,6 +160,37 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                     cg_new.decisions[Premise].append(Conclusion)
                     loop = True
 
+            elif cg_new.is_undirected(i, j) and cg_new.is_undirected(i, k) and cg_new.is_fully_directed(l, j) \
+                    and cg_new.is_fully_directed(k, l) and (cg_new.is_fully_directed(i, l) or cg_new.is_fully_directed(l, i)):
+                print(f"{i} -- {j} and {i} -- {k} and {l} --> {j} and {k} --> {l} and {i} o--o {l}", "R4 Meek, 1995")
+
+                if (background_knowledge is not None) and \
+                        (background_knowledge.is_forbidden(cg_new.G.nodes[i], cg_new.G.nodes[l]) or
+                         background_knowledge.is_required(cg_new.G.nodes[l], cg_new.G.nodes[i])):
+                    pass
+                else:
+                    edge1 = cg_new.G.get_edge(cg_new.G.nodes[i], cg_new.G.nodes[j])
+                    if edge1 is not None:
+                        if cg_new.G.is_ancestor_of(cg_new.G.nodes[j], cg_new.G.nodes[i]):
+                            continue
+                        else:
+                            cg_new.G.remove_edge(edge1)
+                    else:
+                        continue
+                    cg_new.G.add_edge(Edge(cg_new.G.nodes[i], cg_new.G.nodes[j], Endpoint.TAIL, Endpoint.ARROW))
+                    print(f'Oriented: i={i} --> l={j} ({cg_new.G.nodes[i].get_name()} --> {cg_new.G.nodes[j].get_name()})')
+
+                    ## Additional Premise: Three edges are oriented
+                    if cg_new.is_fully_directed(i, l):
+                        third_dir_edge = ["orient({}, {})".format(i, l)]
+                    elif cg_new.is_fully_directed(l, i):
+                        third_dir_edge = ["orient({}, {})".format(l, i)]
+                    Premise = kite_prem + ["orient({}, {})".format(l, j), "orient({}, {})".format(k, l)] + third_dir_edge
+
+                    ## Conclusion
+                    Conclusion = ("orient", (i, j))
+                    cg_new.decisions[Premise].append(Conclusion)
+                    loop = True
     return cg_new
 
 
