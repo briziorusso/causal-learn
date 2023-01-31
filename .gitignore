@@ -8,3 +8,4 @@ causal_learn.egg-info/PKG-INFO
 causal_learn.egg-info/dependency_links.txt
 setup.py
 .ipynb_checkpoints/
+test.lp
