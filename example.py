@@ -546,9 +546,9 @@ print("Number of LESS_EQUAL Preferences:", len([pref.relation for pref in p_pref
 abap = ABA_Plus(assumptions=test_assumptions, rules=ikb_rules, preferences=p_preferences)
 # abap.generate_all_deductions(test_assumptions)
 deductions = abap.generate_all_deductions(test_assumptions)
-[a for a in deductions if a not in test_assumptions] ##TODO: Check that it is actually deductions that should feed this
+[a for a in deductions if a not in test_assumptions]
 
-args_and_attk = abap.generate_arguments_and_attacks(deductions)
+args_and_attk = abap.generate_arguments_and_attacks(deductions) ##TODO: Check that it is actually deductions that should feed this
 
 print("Number of Deductions:",len(args_and_attk[0]))
 
@@ -568,7 +568,37 @@ print("------------------- All Deductions -------------------")
 # Set of all deductions obtained 
 [print(format_deduction(ded)) for ded in list(args_and_attk[2])[:10]]
 
-#--------------------------------------- Calculate Extension -----------------------------------------#
+def format_attack(attack):
+    str = ""
+
+    if attack.type == NORMAL_ATK:
+        str = "Normal Attack: "
+    elif attack.type == REVERSE_ATK:
+        str = "Reverse Attack: "
+
+    str += format_deduction(attack.attacker)
+    str += "   ->   "
+    str += format_deduction(attack.attackee)
+
+    return str
+
+
+## Dump the results in a file
+items = [format_sentence(ded) for ded in list(args_and_attk[0])]
+with open('Deductions.txt', 'w') as f:
+    f.write('\n'.join(items))
+f.close()
+
+items = [format_attack(atk) for atk in list(args_and_attk[1])]
+with open('Attacks.txt', 'w') as f:
+    f.write('\n'.join(items))
+f.close()
+
+items = [format_deduction(ded) for ded in list(args_and_attk[2])]
+with open('AllDeductions.txt', 'w') as f:
+    f.write('\n'.join(items))
+f.close()
+#------------------------------  Calculate Extensions  -------------------------------#
 from ABAplus.aspartix_interface import ASPARTIX_Interface
 asp = ASPARTIX_Interface(abap)
 asp.generate_input_file_for_clingo("test.lp")
