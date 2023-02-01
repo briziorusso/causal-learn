@@ -111,7 +111,7 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                     else:
                         Premise1 = test_obj(X={i}, S=set(), Y={k}, dep_type="I")
                         cg_new.IKB_list.append(Premise1)                      
-                    ## Premise 2: Not a V-structure 
+                    ## Premise 2: (i, j, k) is NOT a V-structure 
                     premise_test2 = [test for test in cg_new.IKB_list if test.X=={i} and test.Y=={k} and \
                                         test.S=={j} and test.dep_type=='I']
                     if premise_test2:
@@ -121,7 +121,7 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                         cg_new.IKB_list.append(Premise2)  
                     Premise = (Premise1, Premise2, "orient({}, {})".format(i, j))
                     Conclusion = "orient({}, {})".format(j, k)
-                    cg_new.decisions[Premise].append(Conclusion)
+                    cg_new.decisions[(Premise)].add(Conclusion)
 
                     loop = True
 
@@ -163,7 +163,7 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                     
                     ## Conclusion: Orient i-->k
                     Conclusion = "orient({}, {})".format(i, k)
-                    cg_new.decisions[Premise].append(Conclusion)
+                    cg_new.decisions[(Premise)].add(Conclusion)
 
                     loop = True
 
@@ -208,7 +208,7 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
                     
                     ## Conclusion
                     Conclusion = "orient({}, {})".format(i, l)
-                    cg_new.decisions[Premise].append(Conclusion)
+                    cg_new.decisions[(Premise)].add(Conclusion)
                     loop = True
 
             elif cg_new.is_undirected(i, j) and cg_new.is_undirected(i, k) and cg_new.is_fully_directed(l, j) \
@@ -240,7 +240,7 @@ def meek(cg: CausalGraph, background_knowledge: BackgroundKnowledge | None = Non
 
                     ## Conclusion
                     Conclusion = "orient({}, {})".format(i, j)
-                    cg_new.decisions[Premise].append(Conclusion)
+                    cg_new.decisions[(Premise)].add(Conclusion)
                     loop = True
     return cg_new
 

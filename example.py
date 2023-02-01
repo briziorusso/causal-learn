@@ -336,61 +336,36 @@ print("Tests added by symmetry:",len(IKB_axioms)-len(cg.IKB_list))
 # ikb_rules.append(rule)
 ##================================================================
 
-##NOTE: chose only thre
 for premise, conclusions in cg.decisions.items():
-    if type(premise) == str:
-        premise = premise.split(' , ')
-        premise = set([Sentence(p) for p in premise])
-    elif type(premise) == tuple:
         p_out_list = []
         for p in premise:
             if type(p) == str:
                 p_out = Sentence(p)
                 p_out_list.append(p_out)
-            elif type(p) == tuple:
-                raise NotImplementedError
             elif 'test_obj' in str(p.__class__):
                 if p not in test_to_sentence_map:
                     test_to_sentence_map[p] = Sentence(str(p.to_list())) 
                     IKB_axioms.append(p)
                 p_out = test_to_sentence_map[p]
                 p_out_list.append(p_out)
+        else:
+            raise TypeError("Premise is not str or test_obj")
         premise = set(p_out_list)
-    elif 'test_obj' in str(premise.__class__):
-        if premise not in test_to_sentence_map:
-            test_to_sentence_map[premise] = Sentence(str(premise.to_list()))  
-            IKB_axioms.append(premise)
-        premise = set([test_to_sentence_map[premise]])                    
-    else:
-        raise TypeError("Premise is not str, tuple or test_obj")
-    if type(conclusions) == str:
-        rule = Rule(premise, Sentence(conclusions))    
-        decision_rules.append(rule)
-    elif type(conclusions) == tuple:
-        rule = Rule(premise, Sentence(str(conclusions)))    
-        decision_rules.append(rule)
-    elif type(conclusions) == list:
+
         for conclusion in conclusions:
             if type(conclusion) == str:
                 rule = Rule(premise, Sentence(conclusion))    
-                decision_rules.append(rule)
-            elif type(conclusion) == tuple:
-                rule = Rule(premise, Sentence(str(conclusions)))    
                 decision_rules.append(rule)
             elif 'test_obj' in str(conclusion.__class__):
                 if conclusion not in test_to_sentence_map:
                     test_to_sentence_map[conclusion] = Sentence(str(conclusion.to_list())) 
                     IKB_axioms.append(conclusion)
-                conclusion = test_to_sentence_map[conclusion]
                 rule = Rule(premise, test_to_sentence_map[conclusion])    
                 decision_rules.append(rule)
-            elif type(conclusion) in [list, set]:
+        elif type(conclusion) == tuple:
                 for c in conclusion:
                     if type(c) == str:
                         rule = Rule(premise, Sentence(c))    
-                        decision_rules.append(rule)
-                    elif type(c) == tuple:
-                        rule = Rule(premise, Sentence(str(c)))    
                         decision_rules.append(rule)
                     elif 'test_obj' in str(c.__class__):
                         if c not in test_to_sentence_map:
@@ -399,9 +374,7 @@ for premise, conclusions in cg.decisions.items():
                         rule = Rule(premise, test_to_sentence_map[c])
                         decision_rules.append(rule)
             else:
-                raise TypeError("Conclusion is not str, tuple, test_obj, set or list")   
-    else:
-        raise TypeError("Conclusion is not recognised")   
+            raise TypeError("Conclusion is not str, test_obj or tuple")   
 
 for (a,b) in tqdm(itertools.combinations(IKB_axioms, 2)):
 

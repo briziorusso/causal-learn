@@ -358,7 +358,7 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                     Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
                     cg_new.IKB_list.append(Conclusion2)
 
-                cg_new.decisions[(UC_premise_test, Premise)].append(set([Conclusion1, Conclusion2]))
+                cg_new.decisions[(UC_premise_test, Premise)].add((Conclusion1, Conclusion2))
         else:
             print("max_p_not_contain_y <= max_p_contain_y",max_p_not_contain_y, max_p_contain_y)
             loosing_cond_set = get_keys_from_value(cond_without_y_p, max_p_not_contain_y)
@@ -402,7 +402,7 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
                 cg_new.IKB_list.append(Conclusion2)
 
-            cg_new.decisions[(UC_premise_test,Premise)].append(set([Conclusion1, Conclusion2]))
+            cg_new.decisions[(UC_premise_test, Premise)].add((Conclusion1, Conclusion2))
 
     if priority in [0, 1, 2]:
         return cg_new
@@ -456,11 +456,11 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 cg_new.G.add_edge(Edge(cg_new.G.nodes[z], cg_new.G.nodes[y], Endpoint.TAIL, Endpoint.ARROW))
                 print(f'Oriented: z={z} --> y={y} ({cg_new.G.nodes[z].get_name()} --> {cg_new.G.nodes[y].get_name()})')
                 Conclusion2 = "orient({}, {})".format(z, y)
-                cg_new.decisions[(UC_premise_test,Premise)].append(set([Conclusion1, Conclusion2]))
+                cg_new.decisions[(UC_premise_test, Premise)].add((Conclusion1, Conclusion2))
 
             else:
                 #remove from decisions if edge is not removed
-                del cg_new.decisions[get_keys_from_value(cg_new.decisions, (UC_premise_test,Premise))]
+                del cg_new.decisions[get_keys_from_value(cg_new.decisions, (UC_premise_test, Premise))]
 
         return cg_new
 

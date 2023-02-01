@@ -48,7 +48,7 @@ class CausalGraph:
         self.prt_m = {}  # store the parents of missingness indicators
         self.IKB = np.empty((no_of_var, no_of_var), object)  # store the Independent Knowledge Base
         self.IKB_list = list()  # store the Independent Knowledge Base
-        self.decisions = defaultdict(list)
+        self.decisions = defaultdict(set)
 
     def set_ind_test(self, indep_test):
         """Set the conditional independence test that will be used"""
