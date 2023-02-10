@@ -33,7 +33,7 @@ from tests.utils_simulate_data import simulate_discrete_data, simulate_linear_co
 # Then by Meek rule 3: 1 -> 3.
 
 # truth_DAG_directed_edges = {(0, 2), (0, 3), (0, 4), (2, 4), (2, 3), (3, 4), (1, 2), (1, 4)}
-truth_DAG_directed_edges = {(0, 2), (1, 2)}#, (3, 2)}
+truth_DAG_directed_edges = {(0, 2), (1, 2), (3, 2)}
 num_of_nodes = max(sum(truth_DAG_directed_edges, ())) + 1
 
 data = simulate_discrete_data(num_of_nodes, 10000, truth_DAG_directed_edges, 42)
@@ -582,31 +582,32 @@ print("------------------- All Deductions -------------------")
 
 ## Dump the results in a file
 items = [format_deduction_set(ded) for ded in args_and_attk[0].values()]
-with open('Deductions.txt', 'w') as f:
+with open('outputs/Deductions.txt', 'w') as f:
     f.write('\n'.join(items))
 f.close()
 
 items = [format_attack(atk) for atk in list(args_and_attk[1])]
-with open('Attacks.txt', 'w') as f:
+with open('outputs/Attacks.txt', 'w') as f:
     f.write('\n'.join(items))
 f.close()
 
 items = [format_deduction(ded) for ded in list(args_and_attk[2])]
-with open('AllDeductions.txt', 'w') as f:
+with open('outputs/AllDeductions.txt', 'w') as f:
     f.write('\n'.join(items))
 f.close()
 #------------------------------  Calculate Extensions  -------------------------------#
 from ABAplus.aspartix_interface import ASPARTIX_Interface
 asp = ASPARTIX_Interface(abap)
-asp.generate_input_file_for_clingo("test.lp")
-stable = asp.calculate_stable_extensions("test.lp")
-complete = asp.calculate_complete_extensions("test.lp")
+asp.generate_input_file_for_clingo("outputs/test.lp")
+stable = asp.calculate_stable_extensions("outputs/test.lp")
+complete = asp.calculate_complete_extensions("outputs/test.lp")
 # admissible = asp.calculate_admissible_extensions("test.lp")
-preferred = asp.calculate_preferred_extensions("test.lp")
-grounded = asp.calculate_grounded_extensions("test.lp")
+preferred = asp.calculate_preferred_extensions("outputs/test.lp")
+grounded = asp.calculate_grounded_extensions("outputs/test.lp")
 
-[format_sentence(ded) for ded in next(iter(abap.generate_all_deductions(stable)))]
-format_sets(stable)
+if complete:
+    [format_sentence(ded) for ded in next(iter(abap.generate_all_deductions(complete)))]
+    # format_sets(complete)
 
 #======================================================================================#
 #                         Revise the causal graph with ABA results                     #
@@ -621,11 +622,12 @@ format_sets(stable)
 ### Can start by checking the rejected assumptions
 
 
-
-
 #======================================================================================#
 #                           Code Gradual Semantics (T-Norms)                           #
 #======================================================================================#
+
+## Fact rules are supposed to have outer strenght == inner strenght
+
 
 
 
