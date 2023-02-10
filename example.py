@@ -17,7 +17,7 @@ from tests.utils_simulate_data import simulate_discrete_data, simulate_linear_co
 # print('!! You may also reduce the sample size (<2500), but the result will then not be totally correct ... !!')
 
 # Graph specification.
-num_of_nodes = 5
+# num_of_nodes = 5
 # truth_DAG_directed_edges = {(0, 1), (0, 3), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4)}
 # truth_CPDAG_directed_edges = {(0, 3), (1, 3), (2, 3), (2, 4), (3, 4)}
 # truth_CPDAG_undirected_edges = {(0, 1), (1, 2), (2, 1), (1, 0)}
@@ -32,7 +32,9 @@ num_of_nodes = 5
 # Then by Meek rule 2: 2 -> 4.
 # Then by Meek rule 3: 1 -> 3.
 
-truth_DAG_directed_edges = {(0, 2), (0, 3), (0, 4), (2, 4), (2, 3), (3, 4), (1, 2), (1, 4)}
+# truth_DAG_directed_edges = {(0, 2), (0, 3), (0, 4), (2, 4), (2, 3), (3, 4), (1, 2), (1, 4)}
+truth_DAG_directed_edges = {(0, 2), (1, 2)}#, (3, 2)}
+num_of_nodes = max(sum(truth_DAG_directed_edges, ())) + 1
 
 data = simulate_discrete_data(num_of_nodes, 10000, truth_DAG_directed_edges, 42)
 ## there is no randomness in data generation (with seed fixed for simulate_data).
@@ -42,7 +44,7 @@ data = simulate_discrete_data(num_of_nodes, 10000, truth_DAG_directed_edges, 42)
 # Run PC with default parameters: stable=True, uc_rule=0 (uc_sepset), uc_priority=2 (prioritize existing colliders)
 # cg = pc(data=data, alpha=0.05, stable=True, uc_rule=0, uc_priority=-1, show_progress=True, indep_test='gsq')
 # Run PC with: stable=True, uc_rule=0 (uc_sepset), uc_priority=0 (overwrite)
-cg = pc(data, 0.05, ikb=False, uc_rule=1, uc_priority=4)
+cg = pc(data, 0.1, ikb=False, uc_rule=1, uc_priority=4)
 cg.draw_pydot_graph()
 
 
@@ -284,7 +286,8 @@ sys.path.append("../")
 # from abap_parser import *
 # from aspartix_interface import *
 from ABAplus.aba_plus_ import Rule, Sentence, Preference, ABA_Plus, LESS_THAN, LESS_EQUAL, NO_RELATION, CANNOT_BE_DERIVED, NORMAL_ATK, REVERSE_ATK
-from tqdm import tqdm
+from ABAplus.aba_plus_ import *
+from tqdm.auto import tqdm
 import itertools
 
 IKB_axioms = cg.IKB_list.copy()
@@ -337,43 +340,43 @@ print("Tests added by symmetry:",len(IKB_axioms)-len(cg.IKB_list))
 ##================================================================
 
 for premise, conclusions in cg.decisions.items():
-        p_out_list = []
-        for p in premise:
-            if type(p) == str:
-                p_out = Sentence(p)
-                p_out_list.append(p_out)
-            elif 'test_obj' in str(p.__class__):
-                if p not in test_to_sentence_map:
-                    test_to_sentence_map[p] = Sentence(str(p.to_list())) 
-                    IKB_axioms.append(p)
-                p_out = test_to_sentence_map[p]
-                p_out_list.append(p_out)
+    p_out_list = []
+    for p in premise:
+        if type(p) == str:
+            p_out = Sentence(p)
+            p_out_list.append(p_out)
+        elif 'test_obj' in str(p.__class__):
+            if p not in test_to_sentence_map:
+                test_to_sentence_map[p] = Sentence(str(p.to_list())) 
+                IKB_axioms.append(p)
+            p_out = test_to_sentence_map[p]
+            p_out_list.append(p_out)
         else:
             raise TypeError("Premise is not str or test_obj")
-        premise = set(p_out_list)
+    premise = set(p_out_list)
 
-        for conclusion in conclusions:
-            if type(conclusion) == str:
-                rule = Rule(premise, Sentence(conclusion))    
-                decision_rules.append(rule)
-            elif 'test_obj' in str(conclusion.__class__):
-                if conclusion not in test_to_sentence_map:
-                    test_to_sentence_map[conclusion] = Sentence(str(conclusion.to_list())) 
-                    IKB_axioms.append(conclusion)
-                rule = Rule(premise, test_to_sentence_map[conclusion])    
-                decision_rules.append(rule)
+    for conclusion in conclusions:
+        if type(conclusion) == str:
+            rule = Rule(premise, Sentence(conclusion))    
+            decision_rules.append(rule)
+        elif 'test_obj' in str(conclusion.__class__):
+            if conclusion not in test_to_sentence_map:
+                test_to_sentence_map[conclusion] = Sentence(str(conclusion.to_list()))  
+                IKB_axioms.append(conclusion)
+            rule = Rule(premise, test_to_sentence_map[conclusion])
+            decision_rules.append(rule)
         elif type(conclusion) == tuple:
-                for c in conclusion:
-                    if type(c) == str:
-                        rule = Rule(premise, Sentence(c))    
-                        decision_rules.append(rule)
-                    elif 'test_obj' in str(c.__class__):
-                        if c not in test_to_sentence_map:
-                            test_to_sentence_map[c] = Sentence(str(c.to_list()))  
-                            IKB_axioms.append(c)
-                        rule = Rule(premise, test_to_sentence_map[c])
-                        decision_rules.append(rule)
-            else:
+            for c in conclusion:
+                if type(c) == str:
+                    rule = Rule(premise, Sentence(c))    
+                    decision_rules.append(rule)
+                elif 'test_obj' in str(c.__class__):
+                    if c not in test_to_sentence_map:
+                        test_to_sentence_map[c] = Sentence(str(c.to_list()))  
+                        IKB_axioms.append(c)
+                    rule = Rule(premise, test_to_sentence_map[c])
+                    decision_rules.append(rule)
+        else:
             raise TypeError("Conclusion is not str, test_obj or tuple")   
 
 for (a,b) in tqdm(itertools.combinations(IKB_axioms, 2)):
@@ -538,6 +541,11 @@ print("Number of Preferences:", len(p_preferences))
 print("Number of LESS_THAN Preferences:", len([pref.relation for pref in p_preferences if pref.relation==1]))
 print("Number of LESS_EQUAL Preferences:", len([pref.relation for pref in p_preferences if pref.relation==2]))
 
+print("------------------- Assumptions -------------------")
+[print(format_sentence(asm), "p_val=",[round(k.p_val,2) for k, v in test_to_sentence_map.items() if v == asm][0]) for asm in test_assumptions ]
+
+print("------------------- Grounded Rule Set -------------------")
+[print_rule(rule) for rule in ikb_rules]
 
 #======================================================================================#
 #                                       Build ABA+                                     #
@@ -548,7 +556,8 @@ abap = ABA_Plus(assumptions=test_assumptions, rules=ikb_rules, preferences=p_pre
 deductions = abap.generate_all_deductions(test_assumptions)
 [a for a in deductions if a not in test_assumptions]
 
-args_and_attk = abap.generate_arguments_and_attacks(deductions) ##TODO: Check that it is actually deductions that should feed this
+# args_and_attk = abap.generate_arguments_and_attacks(deductions) ##TODO: Check that it is actually deductions that should feed this
+args_and_attk = abap.generate_arguments_and_attacks_for_contraries()
 
 print("Number of Deductions:",len(args_and_attk[0]))
 
@@ -558,33 +567,21 @@ print("Number of Reverse Attacks:", len([atk for atk in list(args_and_attk[1]) i
 
 print("Number of All Deductions:",len(args_and_attk[2]))
 
-from ABAplus.aba_plus_ import *
 print("------------------- Deductions -------------------")
 # There can be multiple deductions per assumption
-[print(format_sentence(ded)) for ded in list(args_and_attk[0])[:10]]
+[print(format_deduction_set(ded)) for ded in list(args_and_attk[0].values()) ] #if len(ded)>1
+[print(deduce) for deduce in [format_deduction_set(ded) for ded in list(args_and_attk[0].values())] if "orient" in deduce]
+
 print("------------------- Attacks -------------------")
-[print_attack(atk) for atk in list(args_and_attk[1])[:10]]
+[print_attack(atk) for atk in list(args_and_attk[1])]
 print("------------------- All Deductions -------------------")
 # Set of all deductions obtained 
-[print(format_deduction(ded)) for ded in list(args_and_attk[2])[:10]]
-
-def format_attack(attack):
-    str = ""
-
-    if attack.type == NORMAL_ATK:
-        str = "Normal Attack: "
-    elif attack.type == REVERSE_ATK:
-        str = "Reverse Attack: "
-
-    str += format_deduction(attack.attacker)
-    str += "   ->   "
-    str += format_deduction(attack.attackee)
-
-    return str
+[print(format_deduction(ded)) for ded in list(args_and_attk[2]) ] #if len(ded.premise)>1
+[print(deduce) for deduce in [format_deduction(ded) for ded in list(args_and_attk[2])] if "orient" in deduce]
 
 
 ## Dump the results in a file
-items = [format_sentence(ded) for ded in list(args_and_attk[0])]
+items = [format_deduction_set(ded) for ded in args_and_attk[0].values()]
 with open('Deductions.txt', 'w') as f:
     f.write('\n'.join(items))
 f.close()
@@ -604,62 +601,31 @@ asp = ASPARTIX_Interface(abap)
 asp.generate_input_file_for_clingo("test.lp")
 stable = asp.calculate_stable_extensions("test.lp")
 complete = asp.calculate_complete_extensions("test.lp")
+# admissible = asp.calculate_admissible_extensions("test.lp")
+preferred = asp.calculate_preferred_extensions("test.lp")
+grounded = asp.calculate_grounded_extensions("test.lp")
 
-
-from ABAplus.aba_plus_ import format_sets, format_set, format_sentence
+[format_sentence(ded) for ded in next(iter(abap.generate_all_deductions(stable)))]
 format_sets(stable)
 
 #======================================================================================#
 #                         Revise the causal graph with ABA results                     #
 #======================================================================================#
 
-accepted_indep = [s.symbol for s in next(iter(stable)) if 'I' in s.symbol]
+## Check if current orientations are in the accepted extension
 
-### Check if extension is the same as the set of assumptions
-stable_print = [s.symbol for s in next(iter(stable)) ]
-ass_print = [s.symbol for s in test_assumptions]
-set(stable_print) == set(ass_print)
+## Check what D-separation rules apply given the accepted tests
 
-abap.generate_all_deductions(decision_rules)
+##NOTE: do we need both?
 
-##Checks
-[test.to_list() for test in cg.IKB_list if test.p_val == None]
-[test.to_list() for test in IKB_axioms if test.p_val == None]
+### Can start by checking the rejected assumptions
 
-
-def print_relevant_tests_from_list(test_list:list, x:set, y:set, S:set=None, p_val:str=None, d_type:str=None)->list:
-    if S != None: ## s==set() for tests with empty set - not {}
-        if not d_type:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val == p_val]
-        else:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.S==S and test.p_val == p_val and test.dep_type==d_type]
-    else:
-        if not d_type:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val == p_val]
-        else:
-            return [test.to_list() for test in test_list if test.X==x and test.Y==y and test.p_val == p_val and test.dep_type==d_type]
-
-print_relevant_tests_from_list(test_list=cg.IKB_list, x={0}, y={1}, S=set(), p_val='all', d_type=None)
 
 
 
 #======================================================================================#
 #                           Code Gradual Semantics (T-Norms)                           #
 #======================================================================================#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

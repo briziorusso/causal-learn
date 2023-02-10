@@ -240,11 +240,15 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
         cond_with_y_p = {S:cg_new.ci_test(x, z, S) for S in cond_with_y}
         print(f"cond_with_y: {cond_with_y_p}")
         # ikb_dict_x_z = {k: v for d in cg_new.IKB[x,z] for k, v in d.items()}
-        cg_new.IKB_list = cg_new.IKB_list + [test_obj(X={x},S=set(S),Y={z},p_val=cg_new.ci_test(x, z, S),alpha=0.05) for S in cond_with_y if S not in [tuple(test.S) for test in cg_new.IKB_list if test.X=={x} and test.Y=={z}]]
+        cg_new.IKB_list = cg_new.IKB_list + \
+            [test_obj(X={x},S=set(S),Y={z},p_val=cg_new.ci_test(x, z, S),alpha=cg_new.alpha) for S in cond_with_y if S not in \
+                [tuple(test.S) for test in cg_new.IKB_list if test.X=={x} and test.Y=={z}]]
         cond_without_y = cg_new.find_cond_sets_without_mid(x, z, y)
         cond_without_y_p = {S:cg_new.ci_test(x, z, S) for S in cond_without_y}
         print(f"cond_without_y:{cond_without_y_p}")
-        cg_new.IKB_list = cg_new.IKB_list + [test_obj(X={x},S=set(S),Y={z},p_val=cg_new.ci_test(x, z, S),alpha=0.05) for S in cond_without_y if S not in [tuple(test.S) for test in cg_new.IKB_list if test.X=={x} and test.Y=={z}]]
+        cg_new.IKB_list = cg_new.IKB_list + \
+            [test_obj(X={x},S=set(S),Y={z},p_val=cg_new.ci_test(x, z, S),alpha=cg_new.alpha) for S in cond_without_y if S not in 
+                [tuple(test.S) for test in cg_new.IKB_list if test.X=={x} and test.Y=={z}]]
 
         max_p_contain_y = max([cg_new.ci_test(x, z, S) for S in cond_with_y])
         max_p_not_contain_y = max([cg_new.ci_test(x, z, S) for S in cond_without_y])
@@ -349,7 +353,7 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                     cg_new.IKB_list.append(Conclusion1)
 
                 # x _|/|_ z | {W} + y ### Weaker test is not "believed" hence made a dependence 
-                # even though returns I solely from the data
+                # even though returns 'I' from the data
                 conc2_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
                                     test.S==set(loosing_cond_set) and test.dep_type=='D']
                 if conc2_test:
@@ -357,8 +361,11 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 else:
                     Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
                     cg_new.IKB_list.append(Conclusion2)
+                
+                full_premise = (UC_premise_test, Premise) if UC_premise_test != Premise else tuple([Premise])
+                full_conclusion = (Conclusion1, Conclusion2) if Conclusion1 != Conclusion2 else tuple([Conclusion1])
 
-                cg_new.decisions[(UC_premise_test, Premise)].add((Conclusion1, Conclusion2))
+                cg_new.decisions[full_premise].add(full_conclusion)
         else:
             print("max_p_not_contain_y <= max_p_contain_y",max_p_not_contain_y, max_p_contain_y)
             loosing_cond_set = get_keys_from_value(cond_without_y_p, max_p_not_contain_y)
@@ -402,7 +409,10 @@ def maxp(cg: CausalGraph, priority: int = 3, background_knowledge: BackgroundKno
                 Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
                 cg_new.IKB_list.append(Conclusion2)
 
-            cg_new.decisions[(UC_premise_test, Premise)].add((Conclusion1, Conclusion2))
+            full_premise = (UC_premise_test, Premise) if UC_premise_test != Premise else tuple([Premise])
+            full_conclusion = (Conclusion1, Conclusion2) if Conclusion1 != Conclusion2 else tuple([Conclusion1])
+
+            cg_new.decisions[full_premise].add(full_conclusion)
 
     if priority in [0, 1, 2]:
         return cg_new

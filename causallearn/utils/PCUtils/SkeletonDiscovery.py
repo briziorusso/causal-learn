@@ -100,6 +100,7 @@ def skeleton_discovery(
     no_of_var = data.shape[1]
     cg = CausalGraph(no_of_var, node_names)
     cg.set_ind_test(indep_test)
+    cg.alpha = alpha
 
     depth = -1
     pbar = tqdm(total=no_of_var) if show_progress else None
