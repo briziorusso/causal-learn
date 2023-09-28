@@ -45,6 +45,7 @@ def simulate_discrete_data(
     cards = _simulate_cards()
     bn = BayesianNetwork(truth_DAG_directed_edges)  # so isolating nodes will echo error
     for node in range(num_of_nodes):
+        if node not in bn.nodes(): bn.add_node(node) # add node if it is isolated
         parents = np.where(adjacency_matrix[node])[0].tolist()
         parents_card = [cards[prt] for prt in parents]
         rand_ps = np.array([np.random.dirichlet(np.ones(cards[node]) * _random_alpha()) for _ in

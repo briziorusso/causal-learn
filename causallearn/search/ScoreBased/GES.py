@@ -7,7 +7,7 @@ from causallearn.utils.GESUtils import *
 from causallearn.utils.PDAG2DAG import pdag2dag
 
 
-def ges(X: ndarray, score_func: str = 'local_score_BIC', maxP: Optional[float] = None,
+def ges(X: ndarray, score_func: str = 'local_score_BIC', maxP: Optional[float] = None, verbose: Optional[bool] = False,
         parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Perform greedy equivalence search (GES) algorithm
@@ -180,7 +180,8 @@ def ges(X: ndarray, score_func: str = 'local_score_BIC', maxP: Optional[float] =
                 break
             G = insert(G, min_desc[0], min_desc[1], min_desc[2])
             update1.append([min_desc[0], min_desc[1], min_desc[2]])
-            print(G.graph)
+            if verbose:
+                print(G.graph)
             G = pdag2dag(G)
             G = dag2cpdag(G)
             G_step1.append(G)
@@ -190,7 +191,8 @@ def ges(X: ndarray, score_func: str = 'local_score_BIC', maxP: Optional[float] =
 
     ## --------------------------------------------------------------------
     # backward greedy search
-    print('backward')
+    if verbose:
+        print('backward')
     count2 = 0
     score_new = score
     update2 = []
@@ -244,7 +246,8 @@ def ges(X: ndarray, score_func: str = 'local_score_BIC', maxP: Optional[float] =
                 break
             G = delete(G, min_desc[0], min_desc[1], min_desc[2])
             update2.append([min_desc[0], min_desc[1], min_desc[2]])
-            print(G.graph)
+            if verbose:
+                print(G.graph)
             G = pdag2dag(G)
             G = dag2cpdag(G)
             G_step2.append(G)

@@ -105,6 +105,8 @@ def append_value(array, i, j, value):
     """
     if array[i, j] is None:
         array[i, j] = [value]
+    elif value in array[i, j]:
+        pass
     else:
         array[i, j].append(value)
 
@@ -724,3 +726,56 @@ def get_indx_complete_rows(mvdata):
         bindxRows = np.logical_and(bindxRows, ~np.isnan(mvdata[:, i]))
     indxRows = indxRows[bindxRows]
     return indxRows
+
+
+##########################################################################################################################
+
+class test_obj( object ):
+    def __init__(self, X:set, S:set, Y:set, p_val:float=None, dep_type:str="I", alpha:float=0.01 ):
+        self.X= X
+        self.Y= Y
+        self.S= S
+        self.p_val = p_val
+        if p_val == None:
+            self.dep_type = dep_type
+        else:
+            self.dep_type = "D" if p_val < alpha else "I"
+
+    def to_list(self)->list:
+        return [self.X, self.S, self.Y, self.dep_type]
+
+    def elements(self):
+        return (self.X, self.S, self.Y)
+        
+    def negate(self):
+        if self.dep_type=="D":
+            self.dep_type="I"
+        else:
+            self.dep_type="D"
+        return self
+
+    ## Symmetry
+    def symmetrise(self, verbose=True):
+        if self.dep_type=="I":
+            return test_obj(X=self.Y, S=self.S, Y=self.X, p_val=self.p_val, dep_type=self.dep_type)
+
+    ## Decomoposition
+    def decompose(self)->dict:
+        assert len(self.Y)==2
+        Y, W = self.Y
+        return {'P':[self.to_list(),self.to_list()], 'C':[[self.X,self.S,Y, self.dep_type],[self.X,self.S,W, self.dep_type]]}
+
+    ## Weak Union
+    def weak_union(self)->dict:
+        assert len(self.Y)>=2
+        self.Y, self.W = self.Y
+        return {'P':self.to_list(), 'C':[self.X, self.S.union({self.W}), self.Y, self.dep_type]}
+
+def get_keys_from_value(d, val):
+    return [k for k, v in d.items() if v == val][0]
+
+def get_keys_from_list_of_values(d, val):
+    try:
+        return [k for k, v in d.items() for subv in v if val in subv][0]
+    except:
+        return ''

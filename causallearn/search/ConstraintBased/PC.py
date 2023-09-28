@@ -23,8 +23,10 @@ def pc(
     indep_test=fisherz, 
     stable: bool = True, 
     ikb: bool = False, 
+    keep_edges: bool = False,
     uc_rule: int = 0, 
     uc_priority: int = 2,
+    selection: str = 'top',
     mvpc: bool = False, 
     correction_name: str = 'MV_Crtn_Fisher_Z',
     background_knowledge: BackgroundKnowledge | None = None, 
@@ -44,10 +46,10 @@ def pc(
                         verbose=verbose,
                         show_progress=show_progress, **kwargs)
     else:
-        return pc_alg(data=data, node_names=node_names, alpha=alpha, indep_test=indep_test, stable=stable, ikb=ikb, uc_rule=uc_rule,
-                      uc_priority=uc_priority, background_knowledge=background_knowledge, verbose=verbose,
-                      show_progress=show_progress, **kwargs)
-
+        return pc_alg(data=data, node_names=node_names, alpha=alpha, indep_test=indep_test, stable=stable, 
+                      uc_rule=uc_rule, uc_priority=uc_priority, background_knowledge=background_knowledge,
+                        ikb=ikb, keep_edges=keep_edges, selection=selection, 
+                        verbose=verbose, show_progress=show_progress, **kwargs)
 
 def pc_alg(
     data: ndarray,
@@ -59,6 +61,8 @@ def pc_alg(
     uc_rule: int,
     uc_priority: int,
     background_knowledge: BackgroundKnowledge | None = None,
+    selection: str = "top",
+    keep_edges: bool = False,
     verbose: bool = False,
     show_progress: bool = True,
     **kwargs
@@ -82,6 +86,7 @@ def pc_alg(
            0: run uc_sepset
            1: run maxP (Ramsey, J. (2016). Improving accuracy and scalability of the pc algorithm by maximizing p-value. arXiv preprint arXiv:1610.00378.)
            2: run definiteMaxP (Ramsey, J. (2016))
+           3: run ShaplePC (Russo, F. (2023). Shapley causal discovery. arXiv preprint arXiv:XXXX.XXXXXX.)
     uc_priority : rule of resolving conflicts between unshielded colliders
            -1: whatever is default in uc_rule
            0: overwrite
@@ -103,7 +108,7 @@ def pc_alg(
 
     start = time.time()
     indep_test = CIT(data, indep_test, **kwargs)
-    cg_1 = SkeletonDiscovery.skeleton_discovery(data, alpha, indep_test, stable, ikb,
+    cg_1 = SkeletonDiscovery.skeleton_discovery(data, alpha, indep_test, stable, keep_edges, ikb,
                                                 background_knowledge=background_knowledge, verbose=verbose,
                                                 show_progress=show_progress, node_names=node_names)
 
@@ -113,37 +118,45 @@ def pc_alg(
     if uc_rule == 0:
         print("Starting Orientation by Separating Set")
         if uc_priority != -1:
-            cg_2 = UCSepset.uc_sepset(cg_1, uc_priority, background_knowledge=background_knowledge)
+            cg_1 = UCSepset.uc_sepset(cg_1, uc_priority, background_knowledge=background_knowledge)
         else:
-            cg_2 = UCSepset.uc_sepset(cg_1, background_knowledge=background_knowledge)
+            cg_1 = UCSepset.uc_sepset(cg_1, background_knowledge=background_knowledge)
         print("Starting propagation by Meek Rules (Meek, 1995)")
-        cg = Meek.meek(cg_2, background_knowledge=background_knowledge)
+        cg_1 = Meek.meek(cg_1, background_knowledge=background_knowledge)
 
     elif uc_rule == 1:
         print("Starting Orientation by MaxP (Ramsey, 2016)")
         if uc_priority != -1:
-            cg_2 = UCSepset.maxp(cg_1, uc_priority, background_knowledge=background_knowledge)
+            cg_1 = UCSepset.maxp(cg_1, uc_priority, background_knowledge=background_knowledge, verbose=verbose)
         else:
-            cg_2 = UCSepset.maxp(cg_1, background_knowledge=background_knowledge)
+            cg_1 = UCSepset.maxp(cg_1, background_knowledge=background_knowledge, verbose=verbose)
         print("Starting propagation by Meek Rules (Meek, 1995)")
-        cg = Meek.meek(cg_2, background_knowledge=background_knowledge)
+        cg_1 = Meek.meek(cg_1, background_knowledge=background_knowledge, verbose=verbose)
 
     elif uc_rule == 2:
         print("Starting Orientation by DefiniteMaxP (Ramsey, 2016)")
         if uc_priority != -1:
-            cg_2 = UCSepset.definite_maxp(cg_1, alpha, uc_priority, background_knowledge=background_knowledge)
+            cg_1 = UCSepset.definite_maxp(cg_1, alpha, uc_priority, background_knowledge=background_knowledge, verbose=verbose)
         else:
-            cg_2 = UCSepset.definite_maxp(cg_1, alpha, background_knowledge=background_knowledge)
-        cg_before = Meek.definite_meek(cg_2, background_knowledge=background_knowledge)
+            cg_1 = UCSepset.definite_maxp(cg_1, alpha, background_knowledge=background_knowledge, verbose=verbose)
+        cg_1 = Meek.definite_meek(cg_1, background_knowledge=background_knowledge, verbose=verbose)
         print("Starting propagation by Meek Rules (Meek, 1995)")
-        cg = Meek.meek(cg_before, background_knowledge=background_knowledge)
+        cg_1 = Meek.meek(cg_1, background_knowledge=background_knowledge, verbose=verbose)
+    elif uc_rule == 3:
+        print("Starting Orientation by Shapley PC (Russo, 2023)")
+        if uc_priority != -1:
+            cg_1 = UCSepset.shapley_cs(cg_1, uc_priority, background_knowledge=background_knowledge, selection=selection, verbose=verbose)
+        else:
+            cg_1 = UCSepset.shapley_cs(cg_1, background_knowledge=background_knowledge, selection=selection,  verbose=verbose)
+        print("Starting propagation by Meek Rules (Meek, 1995)")
+        cg_1 = Meek.meek(cg_1, background_knowledge=background_knowledge, verbose=verbose)
     else:
-        raise ValueError("uc_rule should be in [0, 1, 2]")
+        raise ValueError("uc_rule should be in [0, 1, 2, 3]")
     end = time.time()
 
-    cg.PC_elapsed = end - start
+    cg_1.PC_elapsed = end - start
 
-    return cg
+    return cg_1
 
 
 def mvpc_alg(

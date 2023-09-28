@@ -750,7 +750,7 @@ class GeneralGraph(Graph, ABC):
         return nodes
 
     # Removes the given edge from the graph.
-    def remove_edge(self, edge: Edge):
+    def remove_edge(self, edge: Edge, reconstitute: bool=True):
         node1 = edge.get_node1()
         node2 = edge.get_node2()
 
@@ -793,8 +793,8 @@ class GeneralGraph(Graph, ABC):
                     if end1 == in_to and end2 == out_of:
                         self.graph[j, i] = 0
                         self.graph[i, j] = 0
-
-        self.reconstitute_dpath(self.get_graph_edges())
+        if reconstitute:
+            self.reconstitute_dpath(self.get_graph_edges()) ###TODO: This is a temporary fix.  Need to fix this.
 
     # Removes the edge connecting the given two nodes, provided there is exactly one such edge.
     def remove_connecting_edge(self, node1: Node, node2: Node):

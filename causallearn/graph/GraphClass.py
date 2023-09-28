@@ -122,19 +122,21 @@ class CausalGraph:
                 if pair[0][0] == pair[1][0] and pair[0][2] == pair[1][2]
                 and pair[0][1] < pair[1][1] and self.G.graph[pair[0][1], pair[1][1]] == 0]
 
-    def find_cond_sets(self, i: int, j: int) -> List[Tuple[int]]:
+    def find_cond_sets(self, i: int, j: int, verbose: bool = False) -> List[Tuple[int]]:
         """return the list of conditioning sets of the neighbors of i or j in adjmat"""
         neigh_x = self.neighbors(i)
         neigh_y = self.neighbors(j)
         pow_neigh_x = powerset(neigh_x)
         pow_neigh_y = powerset(neigh_y)
-        print(f"Neighbours of {i}: {neigh_x}, PWS: {pow_neigh_x}")
-        print(f"Neighbours of {j}: {neigh_y}, PWS: {pow_neigh_y}")
+        if verbose:
+            print(f"Neighbours of {i}: {neigh_x}, PWS: {pow_neigh_x}")
+            print(f"Neighbours of {j}: {neigh_y}, PWS: {pow_neigh_y}")
         return list_union(pow_neigh_x, pow_neigh_y)
 
-    def find_cond_sets_with_mid(self, i: int, j: int, k: int) -> List[Tuple[int]]:
+    def find_cond_sets_with_mid(self, i: int, j: int, k: int, verbose: bool = False) -> List[Tuple[int]]:
         """return the list of conditioning sets of the neighbors of i or j in adjmat which contains k"""
-        print(f"Conditional sets with {k}: {[S for S in self.find_cond_sets(i, j) if k in S]}")
+        if verbose:
+            print(f"Conditional sets with {k}: {[S for S in self.find_cond_sets(i, j) if k in S]}")
         return [S for S in self.find_cond_sets(i, j) if k in S]
 
     def find_cond_sets_without_mid(self, i: int, j: int, k: int) -> List[Tuple[int]]:

@@ -9,49 +9,8 @@ from tqdm.auto import tqdm
 
 from causallearn.graph.GraphClass import CausalGraph
 from causallearn.utils.PCUtils.BackgroundKnowledge import BackgroundKnowledge
-from causallearn.utils.PCUtils.Helper import append_value
+from causallearn.utils.PCUtils.Helper import append_value, test_obj
 from causallearn.utils.cit import CIT
-
-class test_obj( object ):
-    def __init__(self, X:set, S:set, Y:set, p_val:float=None, dep_type:str="I", alpha:float=0.01 ):
-        self.X= X
-        self.Y= Y
-        self.S= S
-        self.p_val = p_val
-        if p_val == None:
-            self.dep_type = dep_type
-        else:
-            self.dep_type = "D" if p_val < alpha else "I"
-
-    def to_list(self)->list:
-        return [self.X, self.S, self.Y, self.dep_type]
-
-    def negate(self):
-        if self.dep_type=="D":
-            self.dep_type="I"
-        else:
-            self.dep_type="D"
-        return self
-
-    def elements(self):
-        return (self.X, self.S, self.Y)
-
-    ## Symmetry
-    def symmetrise(self, verbose=True):
-        if self.dep_type=="I":
-            return test_obj(X=self.Y, S=self.S, Y=self.X, p_val=self.p_val, dep_type=self.dep_type)
-
-    ## Decomoposition
-    def decompose(self)->dict:
-        assert len(self.Y)==2
-        Y, W = self.Y
-        return {'P':[self.to_list(),self.to_list()], 'C':[[self.X,self.S,Y, self.dep_type],[self.dep_type, self.X,self.S,W, self.dep_type]]}
-
-    ## Weak Union
-    def weak_union(self)->dict:
-        assert len(self.Y)>=2
-        self.Y, self.W = self.Y
-        return {'P':self.to_list(), 'C':[self.X, self.S.union({self.W}), self.Y, self.dep_type]}
 
 
 def skeleton_discovery(
@@ -59,9 +18,10 @@ def skeleton_discovery(
     alpha: float, 
     indep_test: CIT,
     stable: bool = True,
+    keep_edges: bool = False,
     ikb: bool = False,
     background_knowledge: BackgroundKnowledge | None = None, 
-    verbose: bool = True,
+    verbose: bool = False,
     show_progress: bool = True,
     node_names: List[str] | None = None, 
 ) -> CausalGraph:
@@ -114,6 +74,7 @@ def skeleton_discovery(
                 pbar.update()
             if show_progress:
                 pbar.set_description(f'Depth={depth}, working on node {x}')
+            if verbose:
                 print(f'Depth={depth}, working on node {cg.G.nodes[x].get_name()}')
             Neigh_x = cg.neighbors(x)
             if len(Neigh_x) < depth - 1:
@@ -137,15 +98,16 @@ def skeleton_discovery(
                         append_value(cg.sepset, y, x, ())
                         break
                     else:
-                        edge_removal.append((x, y))  # after all conditioning sets at
-                        edge_removal.append((y, x))  # depth l have been considered
+                        if not keep_edges:
+                            edge_removal.append((x, y))  # after all conditioning sets at
+                            edge_removal.append((y, x))  # depth l have been considered
 
                 Neigh_x_noy = np.delete(Neigh_x, np.where(Neigh_x == y))
                 for S in combinations(Neigh_x_noy, depth):
                     p = cg.ci_test(x, y, S)
                     if p > alpha:
-                        # if verbose:
-                        print('%s _||_ %s | %s with p-value %f\n' % (cg.G.nodes[x].get_name(), cg.G.nodes[y].get_name(), [cg.G.nodes[s].get_name() for s in S], p))
+                        if verbose:
+                            print('%s _||_ %s | %s with p-value %f\n' % (cg.G.nodes[x].get_name(), cg.G.nodes[y].get_name(), [cg.G.nodes[s].get_name() for s in S], p))
                         if not stable:
                             edge1 = cg.G.get_edge(cg.G.nodes[x], cg.G.nodes[y])
                             if edge1 is not None:
@@ -157,19 +119,23 @@ def skeleton_discovery(
                             append_value(cg.sepset, y, x, S)
                             break
                         else:
-                            edge_removal.append((x, y))  # after all conditioning sets at
-                            edge_removal.append((y, x))  # depth l have been considered
+                            if not keep_edges:
+                                edge_removal.append((x, y))  # after all conditioning sets at
+                                edge_removal.append((y, x))  # depth l have been considered
                             for s in S:
                                 sepsets.add(s)
-                        append_value(cg.IKB, x, y, {S:p})
-                        append_value(cg.IKB, y, x, {S:p})
-                        cg.IKB_list.append(test_obj(X={x},S=set(S),Y={y},p_val=p,alpha=alpha))
+                        append_value(cg.IKB, x, y, (S,p))
+                        append_value(cg.IKB, y, x, (S,p))
+                        if ikb:
+                            cg.IKB_list.append(test_obj(X={x},S=set(S),Y={y},p_val=p,alpha=alpha))
 
                     else:
-                        print('%s _|/|_ %s | %s with p-value %f\n' % (cg.G.nodes[x].get_name(), cg.G.nodes[y].get_name(), [cg.G.nodes[s].get_name() for s in S], p))
-                        append_value(cg.IKB, x, y, {S:p})
-                        append_value(cg.IKB, y, x, {S:p})
-                        cg.IKB_list.append(test_obj(X={x},S=set(S),Y={y},p_val=p,alpha=alpha))
+                        if verbose:
+                            print('%s _|/|_ %s | %s with p-value %f\n' % (cg.G.nodes[x].get_name(), cg.G.nodes[y].get_name(), [cg.G.nodes[s].get_name() for s in S], p))
+                        append_value(cg.IKB, x, y, (S,p))
+                        append_value(cg.IKB, y, x, (S,p))
+                        if ikb:
+                            cg.IKB_list.append(test_obj(X={x},S=set(S),Y={y},p_val=p,alpha=alpha))
                 append_value(cg.sepset, x, y, tuple(sepsets))
                 append_value(cg.sepset, y, x, tuple(sepsets))
 
@@ -177,16 +143,21 @@ def skeleton_discovery(
             pbar.refresh()
 
         for (x, y) in list(set(edge_removal)):
-            # if verbose:
-            print('Removing %s -- %s. Sepset: %s p-value %s\n' % (cg.G.nodes[x].get_name(), cg.G.nodes[y].get_name(), cg.sepset[x,y],  cg.IKB[x,y]))                
+            if verbose:
+                print('Removing %s -- %s. Sepset: %s p-value %s\n' % (cg.G.nodes[x].get_name(), cg.G.nodes[y].get_name(), cg.sepset[x,y],  cg.IKB[x,y]))                
             edge1 = cg.G.get_edge(cg.G.nodes[x], cg.G.nodes[y])
             if edge1 is not None:
                 cg.G.remove_edge(edge1)
-                Premise = [test for test in cg.IKB_list if test.X=={x} and test.Y=={y} and test.S==set(S)][0]
-                Conclusion = "remove({}, {})".format(x, y)
-                cg.decisions[tuple([Premise])].add(Conclusion)
+                
+                if not keep_edges: ##NOTE: check this for argumentative causal discovery
+                    try:
+                        Premise = [test for test in cg.IKB_list if test.X=={x} and test.Y=={y} and test.S==set(S)][0]
+                        Conclusion = "notedge({}, {})".format(x, y)
+                        cg.decisions[tuple([Premise])].add(Conclusion)
+                    except:
+                        pass
 
-    cg.draw_pydot_graph()
+    # cg.draw_pydot_graph()
 
     if show_progress:
         pbar.close()
