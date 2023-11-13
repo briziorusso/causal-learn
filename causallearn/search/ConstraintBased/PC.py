@@ -108,10 +108,17 @@ def pc_alg(
 
     start = time.time()
     indep_test = CIT(data, indep_test, **kwargs)
-    cg_1 = SkeletonDiscovery.skeleton_discovery(data, alpha, indep_test, stable, keep_edges, ikb,
-                                                background_knowledge=background_knowledge, verbose=verbose,
-                                                show_progress=show_progress, node_names=node_names)
-
+    cg_1 = SkeletonDiscovery.skeleton_discovery(data=data, 
+                                                alpha=alpha, 
+                                                indep_test=indep_test,
+                                                stable=stable,
+                                                keep_edges=keep_edges,
+                                                ikb=ikb,
+                                                background_knowledge=background_knowledge, 
+                                                verbose=verbose,
+                                                show_progress=show_progress,
+                                                node_names=node_names)
+    
     if background_knowledge is not None:
         orient_by_background_knowledge(cg_1, background_knowledge)
 

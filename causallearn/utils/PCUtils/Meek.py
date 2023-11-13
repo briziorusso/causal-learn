@@ -56,7 +56,6 @@ def meek(cg_new: CausalGraph, background_knowledge: BackgroundKnowledge | None =
                             if verbose:
                                 # print(f"{cg_new.G.nodes[k].get_name()} is ancestor of {cg_new.G.nodes[j].get_name()}")
                                 print(f"{k} is ancestor of {j}") ## NOTE: this check could be based on p-val
-
                             continue
                         else:
                             if verbose:
@@ -114,22 +113,10 @@ def meek(cg_new: CausalGraph, background_knowledge: BackgroundKnowledge | None =
                         continue
                     cg_new.G.add_edge(Edge(cg_new.G.nodes[i], cg_new.G.nodes[k], Endpoint.TAIL, Endpoint.ARROW))
                     if verbose:
-                        print(f'Oriented: i={i} --> k={k} ({cg_new.G.nodes[i].get_name()} --> {cg_new.G.nodes[k].get_name()})')
-                    
-                    tri_prem = []
-                    ## Premise 1: Triangle 
-                    for (a,b) in itertools.combinations([i, j, k], 2):
-                        premise_test1 = [test for test in cg_new.IKB_list if test.X=={a} and test.Y=={b} and \
-                                            test.S==set() and test.dep_type=='D']
-                        if premise_test1:
-                            prem = premise_test1[0] 
-                        else:
-                            prem = test_obj(X={a}, S=set(), Y={b}, dep_type="D")
-                            cg_new.IKB_list.append(prem) 
-                        tri_prem.append(prem)                                               
+                        print(f'Oriented: i={i} --> k={k} ({cg_new.G.nodes[i].get_name()} --> {cg_new.G.nodes[k].get_name()})')                                
 
                     ## Premise 2: Cannot have cycles and already have i --> j and j --> k                                           
-                    Premise = tuple(tri_prem + ["arrow({}, {})".format(i, j), "arrow({}, {})".format(j, k)])
+                    Premise = tuple(["edge({}, {})".format(i, k), "arrow({}, {})".format(i, j), "arrow({}, {})".format(j, k)])
                     
                     ## Conclusion: Orient i-->k
                     Conclusion = "arrow({}, {})".format(i, k)
@@ -142,19 +129,6 @@ def meek(cg_new: CausalGraph, background_knowledge: BackgroundKnowledge | None =
         for (i, j, k, l) in Kite:
             if verbose:
                 print((i, j, k, l),"is Kite")
-            kite_prem = []
-            #### Premises for Kite
-            ## All nodes are connected but i and k
-            for (a,b) in itertools.combinations([i, j, k, l], 2):
-                dep_t = 'I' if (a,b)==(i,k) else 'D'
-                premise_test1 = [test for test in cg_new.IKB_list if test.X=={a} and test.Y=={b} and \
-                                    test.S==set() and test.dep_type==dep_t]
-                if premise_test1:
-                    prem = premise_test1[0] 
-                else:
-                    prem = test_obj(X={a}, S=set(), Y={b}, dep_type=dep_t)
-                    cg_new.IKB_list.append(prem) 
-                kite_prem.append(prem)     
 
             if cg_new.is_undirected(i, j) and cg_new.is_undirected(i, k) and cg_new.is_fully_directed(j, l) \
                     and cg_new.is_fully_directed(k, l) and cg_new.is_undirected(i, l):
@@ -178,7 +152,7 @@ def meek(cg_new: CausalGraph, background_knowledge: BackgroundKnowledge | None =
                         print(f'Oriented: i={i} --> l={l} ({cg_new.G.nodes[i].get_name()} --> {cg_new.G.nodes[l].get_name()})')
                       
                     ## Additional Premise: Two edges are oriented
-                    Premise = tuple(kite_prem + ["arrow({}, {})".format(j, l), "arrow({}, {})".format(k, l)])
+                    Premise = tuple(["edge({}, {})".format(i, k), "edge({}, {})".format(i, l), "arrow({}, {})".format(j, l), "arrow({}, {})".format(k, l)])
                     
                     ## Conclusion
                     Conclusion = "arrow({}, {})".format(i, l)

@@ -731,22 +731,27 @@ def get_indx_complete_rows(mvdata):
 ##########################################################################################################################
 
 class test_obj( object ):
-    def __init__(self, X:set, S:set, Y:set, p_val:float=None, dep_type:str="I", alpha:float=0.01 ):
+    def __init__(self, X:set, S:set, Y:set, dep_type:str="I", p_val:float=None, alpha:float=0.01, verbose:bool=False ):
+        
+        assert type(X)==set and type(Y)==set and type(S)==set, "All X, Y, S must be sets"
+        
         self.X= X
         self.Y= Y
         self.S= S
         self.p_val = p_val
+        self.alpha = alpha
         if p_val == None:
             self.dep_type = dep_type
         else:
             self.dep_type = "D" if p_val < alpha else "I"
 
-    def to_list(self)->list:
-        return [self.X, self.S, self.Y, self.dep_type]
+    def to_list(self, p=True)->list:
+        p_round = round(self.p_val,3) if self.p_val != None else None
+        return [self.X, self.S, self.Y, self.dep_type, p_round]
 
     def elements(self):
-        return (self.X, self.S, self.Y)
-        
+        return (self.X, self.S, self.Y, self.dep_type)
+
     def negate(self):
         if self.dep_type=="D":
             self.dep_type="I"
@@ -755,21 +760,55 @@ class test_obj( object ):
         return self
 
     ## Symmetry
-    def symmetrise(self, verbose=True):
-        if self.dep_type=="I":
-            return test_obj(X=self.Y, S=self.S, Y=self.X, p_val=self.p_val, dep_type=self.dep_type)
+    def symmetrise(self):
+        # if self.dep_type=="I":
+        return test_obj(X=self.Y, S=self.S, Y=self.X, dep_type=self.dep_type, p_val=self.p_val, alpha=self.alpha)
 
     ## Decomoposition
     def decompose(self)->dict:
-        assert len(self.Y)==2
-        Y, W = self.Y
-        return {'P':[self.to_list(),self.to_list()], 'C':[[self.X,self.S,Y, self.dep_type],[self.X,self.S,W, self.dep_type]]}
+        if self.dep_type!="I":
+            pass
+        if len(self.Y)==2:
+            Y, W = self.Y
+            return {'P':[self.to_list(),self.to_list()], 'C':[[self.X,self.S,{Y}, self.dep_type],[self.X,self.S,{W}, self.dep_type]]}
+        elif len(self.Y)>2:
+            decompose = []
+            for W in self.Y:
+                Y = self.Y - {W}
+                decompose.append([self.X, self.S, {Y}, self.dep_type])
+                decompose.append([self.X, self.S, {W}, self.dep_type])
+            return {'P':self.to_list(), 'C':decompose}
 
     ## Weak Union
     def weak_union(self)->dict:
-        assert len(self.Y)>=2
-        self.Y, self.W = self.Y
-        return {'P':self.to_list(), 'C':[self.X, self.S.union({self.W}), self.Y, self.dep_type]}
+        if self.dep_type!="I":
+            pass
+        if len(self.Y)==2:
+            Y, W = self.Y
+            return {'P':self.to_list(), 'C':[[self.X, self.S.union({W}), {Y}, self.dep_type], [self.X, self.S.union({Y}), {W}, self.dep_type]]}
+        elif len(self.Y)>2:
+            union = []
+            for W in self.Y:
+                Y = self.Y - {W}
+                union.append([self.X, self.S.union({W}), {Y}, self.dep_type])
+            ##TODO: remove bigger subsets
+            return {'P':self.to_list(), 'C':union}
+
+    ## Weak Split
+    def weak_split(self)->dict:
+        split = []
+        if self.dep_type!="D":
+            pass
+        if len(self.S)==2: 
+            Z, W = self.S 
+            return {'P':self.to_list(), 'C':[[self.X, {Z}, self.Y.union({W}), self.dep_type, self.p_val]]}
+        elif len(self.S)>2:
+            for W in self.S:
+                Z = self.S - {W}
+                split.append([self.X, {Z}, self.Y.union({W}), self.dep_type, self.p_val])
+            return {'P':self.to_list(), 'C':split}
+
+
 
 def get_keys_from_value(d, val):
     return [k for k, v in d.items() if v == val][0]
