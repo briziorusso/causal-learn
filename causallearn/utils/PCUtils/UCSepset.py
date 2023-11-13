@@ -10,6 +10,7 @@ from causallearn.utils.PCUtils.Helper import append_value, sort_dict_ascending, 
 import math, statistics
 import numpy as np
 import pandas as pd
+from operator import itemgetter
 
 import igraph as ig
 def is_dag(W):
@@ -190,7 +191,7 @@ def maxp(cg_new: CausalGraph, priority: int = 3, background_knowledge: Backgroun
     """
 
     assert priority in [0, 1, 2, 3, 4]
-    maxp_rule = False
+    maxp_rule = True
 
     # cg_new = deepcopy(cg)
     UC_dict = {}
@@ -438,7 +439,7 @@ def maxp(cg_new: CausalGraph, priority: int = 3, background_knowledge: Backgroun
                     Premise = premise_test[0] 
                 else:
                     ### Add to IKB_list if not already there - this is an inferred test from the maxp rule
-                    Premise = test_obj(X={x}, S={y}, Y={z}, dep_type="D")
+                    Premise = test_obj(X={x}, S={y}, Y={z}, dep_type="D", alpha=cg_new.alpha)
                     cg_new.IKB_list.append(Premise)  
 
             if (not cg_new.is_fully_directed(y, x)) and (not cg_new.is_fully_directed(y, z)):
@@ -587,12 +588,12 @@ def definite_maxp(cg: CausalGraph, alpha: float, priority: int = 4,
 ## Define function to calculate shapley values
 def shapley(x:int, y:int, cg_1:CausalGraph, verbose:bool=False, ikb: bool = False) -> list():
     num_of_nodes = len(cg_1.G.nodes)
-    ## Extract conditioning sets and p-values from the skeleton
+    ## Extract conditioning sets and p-values from the skeleton  ##TODO: check if we have all the tests at all calls!!!!!
     if ikb:
         s_p = [(t.S, t.p_val) for t in cg_1.IKB_list if t.X=={x} and t.Y=={y}]
     else:
         s_p = cg_1.IKB[x,y]
-    max_set_size = num_of_nodes - 2
+    max_set_size = max([len(i[0]) for i in s_p])
     n_factorial = math.factorial(max_set_size)
 
     sv_list = []
@@ -612,13 +613,13 @@ def shapley(x:int, y:int, cg_1:CausalGraph, verbose:bool=False, ikb: bool = Fals
             for t in s_p_i:
                 for s in without_i:
                     if set(s[0]).issubset(set(t[0])) and set(t[0]) - set(s[0]) == {i}: # if s is the only difference between t and t-{i}
-                        v_i = t[1] - s[1]
+                        v_i = t[1] - s[1] ## marginal contribution of i (WITH - WITHOUT --> POSITIVE = INCREASE IN INDEPENDENCE WHEN ADDING i)
                         w_i = math.factorial(len(s[0])) * math.factorial(max_set_size - len(s[0]) - 1) / n_factorial
                         sv_i = v_i * w_i
                         sv_is.append(sv_i)
                         if verbose:
                             print((t[0],s[0]), sv_i)
-            avg_sv_i = sum(sv_is)
+            avg_sv_i = round(sum(sv_is),6)
             if verbose:
                 print("SV of {} = {}".format(i, avg_sv_i))
             sv_list.append((i, avg_sv_i))
@@ -656,7 +657,7 @@ def shapley_cs(cg_new: CausalGraph, priority: int = 2, background_knowledge: Bac
 
     for (x, y, z) in UT:
         if verbose:
-            print((x, y, z))
+            # print((x, y, z))
             print(f"(X{x+1},X{y+1},X{z+1})")
         if (background_knowledge is not None) and \
                 (background_knowledge.is_forbidden(cg_new.G.nodes[x], cg_new.G.nodes[y]) or
@@ -687,9 +688,6 @@ def shapley_cs(cg_new: CausalGraph, priority: int = 2, background_knowledge: Bac
                 [test_obj(X={x},S=set(S),Y={z},p_val=cg_new.ci_test(x, z, S),alpha=cg_new.alpha) for S in cond_without_y if S not in 
                     [tuple(test.S) for test in cg_new.IKB_list if test.X=={x} and test.Y=={z}]]
 
-        if verbose:
-            print((x,y,z))
-            print(f"(X{x+1},X{y+1},X{z+1})")
         if (background_knowledge is not None) and \
                 (background_knowledge.is_forbidden(cg_new.G.nodes[x], cg_new.G.nodes[y]) or
                     background_knowledge.is_forbidden(cg_new.G.nodes[z], cg_new.G.nodes[y]) or
@@ -701,29 +699,35 @@ def shapley_cs(cg_new: CausalGraph, priority: int = 2, background_knowledge: Bac
         ## remove nan values (no conditioning sets contain i)
         sv_list = [sv for sv in sv_list if not np.isnan(sv[1])]
         ## sort shapley values
-        sv_list.sort(key=lambda x: x[1], reverse=True)
         if verbose:
             print(sv_list)
 
         ## Option 1: only take the highest shapley value as a v-structure candidate, if it is not negative
         if selection == 'top':
+            sv_list.sort(key=lambda x: x[1], reverse=True)
             ## select the top candidate for dependency (the lowest contribution to the p-value for rejecting the null) 
-            y_star = sv_list[0][0]
+            # y_star = sv_list[0][0] if sv_list[0][1] > 0 else None
+            ### allow for multiple maxima
+            y_star = [sv[0] for sv in sv_list if sv[1] == max(sv_list, key=itemgetter(1))[1]]
+            
             if verbose:
                 print(y_star)
-            if y != y_star or sv_list[0][1] < 0:
+            if y not in y_star:
                 continue
         
-        if selection == 'bottom':
+        elif selection == 'bot':
+            sv_list.sort(key=lambda x: x[1], reverse=False)
             ## select the top candidate for dependency (the lowest contribution to the p-value for rejecting the null) 
-            y_star = sv_list[-1][0]
+            y_star = [sv[0] for sv in sv_list if sv[1] == max(sv_list, key=itemgetter(1))[1]]
+            
             if verbose:
                 print(y_star)
-            if y != y_star or sv_list[-1][1] > 0:
+            if y not in y_star:
                 continue
 
         ## Option 2: accept all the candidates that are in the 2 highest SVs
         elif selection == 'top2':
+            sv_list.sort(key=lambda x: x[1], reverse=True)
             if len(sv_list) >= 2:
                 if y not in [s[0] for s in sv_list[0:2] if s[1]>0]:
                     continue
@@ -735,12 +739,14 @@ def shapley_cs(cg_new: CausalGraph, priority: int = 2, background_knowledge: Bac
 
         ## Option 3: take the highest shapley value as a v-structure candidate if it is higher than the median
         elif selection == 'median':
+            sv_list.sort(key=lambda x: x[1], reverse=True)
             median_sv = statistics.median([sv[1] for sv in sv_list])
             if [sv[1] for sv in sv_list if sv[0]==y][0] < median_sv:
                 continue
 
         ## Option 4: accept all the candidates that are higher than the one with the biggest increment
         elif selection == 'top_change':
+            sv_list.sort(key=lambda x: x[1], reverse=True)
             arr = pd.DataFrame([sv for sv in sv_list], columns=['Var', 'SV']).sort_values('SV', ascending=True)
             arr['change'] = arr['SV'].diff()[arr['SV']>0]
             arr = arr[arr['SV']>0]
@@ -799,7 +805,8 @@ def shapley_cs(cg_new: CausalGraph, priority: int = 2, background_knowledge: Bac
                     # if verbose:
                     print(f'Removed: x={x} --> y={y} ({cg_new.G.nodes[x].get_name()} --> {cg_new.G.nodes[y].get_name()})')
                     print(f'Removed: z={z} --> y={y} ({cg_new.G.nodes[z].get_name()} --> {cg_new.G.nodes[y].get_name()})')
-                    print("Is DAG?", is_dag(cg_new.G.graph > 0))
+                    ###TODO: Reinsert the undirected edges
+                    # print("Is DAG?", is_dag(cg_new.G.graph > 0))
             elif priority == 3: ## 3. Prioritize stronger colliders
                 if not is_dag(cg_new.G.graph > 0):
                     print("Not DAG - Priority 3 to be implemented")
@@ -973,7 +980,7 @@ def shapley_cs_full(cg: CausalGraph, priority: int = 3, background_knowledge: Ba
                     if premise_test:
                         Premise = premise_test[0] 
                     else:
-                        Premise = test_obj(X={x}, S=set(winning_cond_set), Y={z}, dep_type="I")
+                        Premise = test_obj(X={x}, S=set(winning_cond_set), Y={z}, dep_type="I", alpha=cg_new.alpha)
                         cg_new.IKB_list.append(Premise)
                     
                     ## Conclusions
@@ -983,7 +990,7 @@ def shapley_cs_full(cg: CausalGraph, priority: int = 3, background_knowledge: Ba
                     if conc1_test:
                         Conclusion1 = conc1_test[0] 
                     else:
-                        Conclusion1 = test_obj(X={x}, S={y}, Y={z}, dep_type="D")
+                        Conclusion1 = test_obj(X={x}, S={y}, Y={z}, dep_type="D", alpha=cg_new.alpha)
                         cg_new.IKB_list.append(Conclusion1)
 
                     # x _|/|_ z | {W} + y ### Weaker test is not "believed" hence made a dependence 
@@ -993,7 +1000,7 @@ def shapley_cs_full(cg: CausalGraph, priority: int = 3, background_knowledge: Ba
                     if conc2_test:
                         Conclusion2 = conc2_test[0] 
                     else:
-                        Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
+                        Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D", alpha=cg_new.alpha)
                         cg_new.IKB_list.append(Conclusion2)
                     
                     full_premise = (UC_premise_test, Premise) if UC_premise_test != Premise else tuple([Premise])
@@ -1023,7 +1030,7 @@ def shapley_cs_full(cg: CausalGraph, priority: int = 3, background_knowledge: Ba
                 if premise_test:
                     Premise = premise_test[0] 
                 else:
-                    Premise = test_obj(X={x}, S=set(winning_cond_set), Y={z}, dep_type="I")
+                    Premise = test_obj(X={x}, S=set(winning_cond_set), Y={z}, dep_type="I", alpha=cg_new.alpha)
                     cg_new.IKB_list.append(Premise)
 
                 ## Conclusions
@@ -1033,7 +1040,7 @@ def shapley_cs_full(cg: CausalGraph, priority: int = 3, background_knowledge: Ba
                 if conc1_test:
                     Conclusion1 = conc1_test[0] 
                 else:
-                    Conclusion1 = test_obj(X={x}, S={y}, Y={z}, dep_type="I")
+                    Conclusion1 = test_obj(X={x}, S={y}, Y={z}, dep_type="I", alpha=cg_new.alpha)
                     cg_new.IKB_list.append(Conclusion1)
 
                 conc2_test = [test for test in cg_new.IKB_list if test.X=={x} and test.Y=={z} and \
@@ -1044,7 +1051,7 @@ def shapley_cs_full(cg: CausalGraph, priority: int = 3, background_knowledge: Ba
                 if conc2_test:
                     Conclusion2 = conc2_test[0] 
                 else:
-                    Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D")
+                    Conclusion2 = test_obj(X={x}, S=set(loosing_cond_set), Y={z}, dep_type="D", alpha=cg_new.alpha)
                     cg_new.IKB_list.append(Conclusion2)
 
                 full_premise = (UC_premise_test, Premise) if UC_premise_test != Premise else tuple([Premise])
