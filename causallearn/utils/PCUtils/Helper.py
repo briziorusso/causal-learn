@@ -763,6 +763,7 @@ class test_obj( object ):
     def symmetrise(self):
         # if self.dep_type=="I":
         return test_obj(X=self.Y, S=self.S, Y=self.X, dep_type=self.dep_type, p_val=self.p_val, alpha=self.alpha)
+        # return {'P':self.to_list(), 'C':[[self.Y, self.S, self.X, self.dep_type]]}
 
     ## Decomoposition
     def decompose(self)->dict:
@@ -777,6 +778,7 @@ class test_obj( object ):
                 Y = self.Y - {W}
                 decompose.append([self.X, self.S, {Y}, self.dep_type])
                 decompose.append([self.X, self.S, {W}, self.dep_type])
+                #TODO: check that there is no duplicates...
             return {'P':self.to_list(), 'C':decompose}
 
     ## Weak Union
